@@ -70,8 +70,14 @@ services:
     healthCheckPath: /health
     # `/health` is excluded from the api/v1 global prefix in main.ts, so this
     # path is correct and /api/v1/health would 404 the deploy.
+    # `--include=dev` is load-bearing. NODE_ENV=production is set below for the
+    # runtime, and npm honours it during install too: devDependencies are
+    # skipped, so @nestjs/cli and typescript never land and `nest build` exits
+    # 127 (command not found). The compiler is a build-time tool that happens to
+    # be declared as a devDependency, which is correct — the install just has to
+    # be told that building is not the same as running.
     buildCommand: >-
-      npm ci &&
+      npm ci --include=dev &&
       npx prisma generate --schema apps/api/prisma/schema.prisma &&
       npm run build --workspace=@tip/api
     preDeployCommand: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
