@@ -1,0 +1,142 @@
+# Render Blueprint — Postgres, Redis, the AI engine and the API.
+#
+# The Next.js frontend is NOT here: it is already deployed on Vercel, which is
+# the better host for it. This blueprint provides the backend that frontend is
+# currently missing.
+#
+# Deploy: Render Dashboard → New → Blueprint → point at this repo.
+#
+# Two values are deliberately left to be entered by hand (`sync: false`) rather
+# than committed. Everything else is wired automatically between services.
+
+databases:
+  - name: alphaline-postgres
+    databaseName: tip
+    user: tip
+    # Free Postgres is deleted after 30 days on Render. Fine for a first
+    # deploy, not for anything whose trade history you care about — and the
+    # precedent check is only as good as the history it can read.
+    plan: free
+
+services:
+  # ── Redis ─────────────────────────────────────────────────────
+  # Caching and BullMQ queues. Not reachable from the internet.
+  - type: keyvalue
+    name: alphaline-redis
+    plan: free
+    ipAllowList: []
+
+  # ── AI engine (FastAPI) ───────────────────────────────────────
+  - type: web
+    name: alphaline-ai
+    runtime: python
+    rootDir: services/ai
+    plan: starter
+    healthCheckPath: /health
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Pinned to match the Dockerfile. Render's default is newer, and
+      # numpy/pandas/scipy wheels often lag a new Python release — the build
+      # then falls back to compiling from source and fails after several
+      # minutes with a C error that says nothing about the real cause.
+      - key: PYTHON_VERSION
+        value: 3.12.7
+
+      # Generated once by Render and copied to the API below, so the two always
+      # agree without the shared secret ever being committed.
+      - key: AI_SERVICE_TOKEN
+        generateValue: true
+
+      # FinBERT pulls in PyTorch: well over a gigabyte of image and the RAM to
+      # hold the model. Leave off unless you have decided you want it.
+      - key: ENABLE_FINBERT
+        value: "0"
+
+      - key: REDIS_URL
+        fromService:
+          name: alphaline-redis
+          type: keyvalue
+          property: connectionString
+
+  # ── API (NestJS) ──────────────────────────────────────────────
+  # Must stay on a paid instance. Free instances sleep when idle, and a
+  # sleeping API runs no cron, holds no Binance socket, and sends no Telegram
+  # alert — the autonomous half of this platform simply stops existing.
+  - type: web
+    name: alphaline-api
+    runtime: node
+    plan: starter
+    healthCheckPath: /health
+    # `/health` is excluded from the api/v1 global prefix in main.ts, so this
+    # path is correct and /api/v1/health would 404 the deploy.
+    buildCommand: >-
+      npm ci &&
+      npx prisma generate --schema apps/api/prisma/schema.prisma &&
+      npm run build --workspace=@tip/api
+    preDeployCommand: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+    startCommand: node apps/api/dist/src/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: alphaline-postgres
+          property: connectionString
+
+      - key: REDIS_URL
+        fromService:
+          name: alphaline-redis
+          type: keyvalue
+          property: connectionString
+
+      # Copied from the AI service so both sides share one secret.
+      - key: AI_SERVICE_TOKEN
+        fromService:
+          name: alphaline-ai
+          type: web
+          envVarKey: AI_SERVICE_TOKEN
+
+      # Render cannot compose a URL from a hostname in a blueprint, so paste
+      # the AI service's address here after the first deploy:
+      #   https://alphaline-ai.onrender.com
+      - key: AI_SERVICE_URL
+        sync: false
+
+      # Generated per-environment. The API refuses to boot in production if
+      # these are left at the dev defaults — see validateProductionConfig.
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+      # The Vercel frontend. Must be exact — scheme, host, no trailing slash.
+      - key: CORS_ORIGINS
+        value: https://trading-signal-ai-web-two.vercel.app
+
+      # The frontend and API are on different registrable domains
+      # (vercel.app vs onrender.com), which makes every request between them
+      # cross-site. A 'lax' cookie would be stored and then never sent again:
+      # login appears to succeed and the session dies at the first refresh.
+      - key: COOKIE_SAMESITE
+        value: none
+
+      # Empty means a host-only cookie on the API's own domain, which is what
+      # is wanted here. Set this only if you later serve both from one parent
+      # domain — at which point switch COOKIE_SAMESITE back to 'lax'.
+      - key: COOKIE_DOMAIN
+        value: ""
+
+      # Cold analysis with calibration genuinely takes ~45s on a small
+      # instance, and the client gives up before the engine answers otherwise.
+      - key: AI_TIMEOUT_MS
+        value: "60000"
+
+      - key: AUTOSCAN_ENABLED
+        value: "true"
+
+      # Optional. Left unsynced so real keys are entered in the dashboard
+      # rather than committed to a public repository.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
