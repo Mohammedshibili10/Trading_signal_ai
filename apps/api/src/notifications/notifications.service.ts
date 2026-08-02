@@ -7,6 +7,30 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeGateway, RealtimeModule } from '../realtime/realtime.module';
 import { TelegramController, TelegramService } from './telegram.controller';
 
+/**
+ * Display timezone for anything a person reads.
+ *
+ * `toISOString()` renders UTC, which for an IST reader is five and a half
+ * hours in the past — a signal issued at 21:30 arrives stamped 16:00, and the
+ * natural reading is that the alert is stale and can be ignored. That is the
+ * worst possible failure for a time-sensitive message.
+ *
+ * Configurable, defaulting to the timezone of the platform's primary market.
+ */
+const DISPLAY_TZ = process.env.DISPLAY_TIMEZONE || 'Asia/Kolkata';
+
+function localTime(date: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: DISPLAY_TZ,
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZoneName: 'short',
+  }).format(date);
+}
+
 export interface SignalNotification {
   signalId: string;
   symbol: string;
@@ -178,29 +202,51 @@ export class NotificationsService {
     }
 
     const { title, body } = this.format(signal);
+    const telegramText = `*${title}*\n\n${body}`;
+
+    // ── Push first, persist second ──────────────────────────────
+    //
+    // Telegram goes out before anything is written. A trade alert is worth
+    // only as much as its timeliness, whereas the database row is worth the
+    // same whenever it lands. Previously each user's message waited behind
+    // that user's INSERT and the inserts ran one at a time, so against a
+    // remote database every recipient added a full round-trip — the last
+    // person on a long list could be many seconds behind the first.
+    //
+    // Nothing here is awaited: a slow or failing Telegram call must not delay
+    // the next recipient.
+    for (const user of audience) {
+      if (user.preferences?.signalAlerts === false) continue;
+      const chatId = user.preferences?.telegramChatId;
+      if (chatId) void this.telegram(chatId, telegramText);
+    }
+
+    // The in-app record is always written, even for users with alerts off: it
+    // is the signal history, and dropping rows because of a preference would
+    // leave gaps in a record someone later wants to audit.
+    //
+    // One statement rather than one per user — moving the sends earlier would
+    // achieve little if the writes still cost N sequential round-trips.
+    const notifications = await this.prisma.notification.createManyAndReturn({
+      data: audience.map((user) => ({
+        userId: user.id,
+        title,
+        body,
+        kind: 'SIGNAL' as const,
+        symbol: signal.symbol,
+        link: `/markets/${signal.symbol}`,
+      })),
+    });
+
+    const byUser = new Map(notifications.map((row) => [row.userId, row]));
     let delivered = 0;
 
     for (const user of audience) {
       const prefs = user.preferences;
-
-      // The in-app record is always written. It is the signal history, and
-      // dropping rows because a preference is off would leave gaps in the
-      // record a user later wants to audit.
-      const notification = await this.prisma.notification.create({
-        data: {
-          userId: user.id,
-          title,
-          body,
-          kind: 'SIGNAL',
-          symbol: signal.symbol,
-          link: `/markets/${signal.symbol}`,
-        },
-      });
-
       if (prefs?.signalAlerts === false) continue;
 
       this.realtime.notifyUser(user.id, {
-        ...notification,
+        ...byUser.get(user.id),
         signalId: signal.signalId,
         action: signal.action,
         confidence: signal.confidence,
@@ -212,9 +258,6 @@ export class NotificationsService {
           .send({ to: user.email, subject: title, text: body })
           .catch((error: Error) => this.logger.debug(`email failed: ${error.message}`));
       }
-
-      const chatId = user.preferences?.telegramChatId;
-      if (chatId) void this.telegram(chatId, `*${title}*\n\n${body}`);
     }
 
     this.logger.log(
