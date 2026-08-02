@@ -10,6 +10,35 @@ import { AiClientService } from './ai-client.service';
 import { assessReissue, type ReissueSuppressed } from './signal-reissue';
 import { PrecedentService } from './precedent.service';
 
+/**
+ * How long a full analysis stays fresh, by timeframe.
+ *
+ * A flat 60 seconds was wrong in the expensive direction. The costly part of a
+ * calibrated analysis is the walk-forward pass, which re-runs the pipeline over
+ * history and therefore only changes when a *new bar closes* — so a daily chart
+ * was paying for that work sixty times an hour to produce the same answer.
+ *
+ * Worse, the recomputation takes longer than the AI client's timeout on a small
+ * instance, so each expiry had a good chance of failing rather than refreshing;
+ * five of those in a row open the circuit breaker and every request then returns
+ * 503 until it closes.
+ *
+ * Roughly a third of the bar interval, floored so intraday stays responsive and
+ * capped so nothing looks stale.
+ */
+const ANALYSIS_TTL_SECONDS: Record<string, number> = {
+  '1m': 45,
+  '3m': 60,
+  '5m': 100,
+  '15m': 300,
+  '30m': 600,
+  '1h': 900,
+  '4h': 900,
+  '1D': 900,
+  '1W': 900,
+  '1M': 900,
+};
+
 /** Bars needed for a meaningful read. Below 60 the engine refuses to score. */
 const MIN_BARS = 60;
 const DEFAULT_BARS = 400;
@@ -43,9 +72,10 @@ export class AnalysisService {
   /**
    * Full analysis for one instrument.
    *
-   * Cached for 60 seconds per symbol+timeframe. The walk-forward calibration
-   * pass alone costs ~12 seconds on 400 daily bars, so serving this uncached
-   * would make the symbol page unusable.
+   * Cached per symbol+timeframe for a period that scales with the timeframe
+   * (see ANALYSIS_TTL_SECONDS). The walk-forward calibration pass re-runs the
+   * pipeline across history, so serving this uncached would make the symbol
+   * page unusable — and refreshing it every minute was very nearly as bad.
    */
   async analyse(
     symbol: string,
@@ -58,7 +88,11 @@ export class AnalysisService {
 
     const key = `analysis:${instrument.symbol}:${timeframe}:${withCalibration ? 'cal' : 'raw'}:${riskPerTrade}`;
 
-    return this.redis.wrap(key, 60, async () => {
+    // Uncalibrated reads are cheap, so they refresh quickly; the calibrated
+    // one is what needs protecting from repeated recomputation.
+    const ttl = withCalibration ? (ANALYSIS_TTL_SECONDS[timeframe] ?? 900) : 60;
+
+    return this.redis.wrap(key, ttl, async () => {
       const { candles } = await this.marketData.getCandles(instrument.symbol, timeframe, DEFAULT_BARS);
 
       if (candles.length < MIN_BARS) {

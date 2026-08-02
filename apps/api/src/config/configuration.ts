@@ -208,8 +208,11 @@ export default (): AppConfig => {
     ai: {
       url: process.env.AI_SERVICE_URL ?? 'http://localhost:8000',
       token: process.env.AI_SERVICE_TOKEN ?? 'dev-ai-service-token-change-me',
-      // The full analysis with calibration is genuinely slow on a cold cache.
-      timeoutMs: int(process.env.AI_TIMEOUT_MS, 45_000),
+      // The full analysis with calibration is genuinely slow on a cold cache —
+      // measured at ~45s locally and slower on a small instance. A timeout at 45s
+      // therefore failed the very requests it was meant to bound, and five such
+      // failures open the circuit breaker, turning slowness into a hard 503.
+      timeoutMs: int(process.env.AI_TIMEOUT_MS, 90_000),
     },
 
     rateLimit: {
