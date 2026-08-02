@@ -50,13 +50,31 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  // Origins are compared as exact strings by the CORS layer, so a configured
+  // value with a trailing slash silently matches nothing — and the browser
+  // reports it as "no Access-Control-Allow-Origin", which reads like the
+  // variable was never set at all. Normalise rather than make people find that.
+  const allowedOrigins = appConfig.corsOrigins.map((origin) => origin.trim().replace(/\/+$/, ''));
+
   app.enableCors({
-    origin: appConfig.corsOrigins,
+    origin: allowedOrigins,
     // Required — the refresh token lives in an httpOnly cookie.
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+
+  // Logged at boot because a CORS failure is invisible from the server side:
+  // the request succeeds, the response is correct, and the browser discards it.
+  // Printing the effective allow-list turns "the API is down" into one glance
+  // at the deploy log.
+  logger.log(`CORS allowing: ${allowedOrigins.join(', ')}`);
+  if (appConfig.nodeEnv === 'production' && allowedOrigins.some((o) => o.includes('localhost'))) {
+    logger.warn(
+      'CORS_ORIGINS still contains localhost in production — browsers will block ' +
+        'your deployed frontend. Set CORS_ORIGINS to the frontend origin.',
+    );
+  }
 
   app.useGlobalPipes(
     new ValidationPipe({
