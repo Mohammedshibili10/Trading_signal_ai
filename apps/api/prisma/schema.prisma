@@ -1,0 +1,995 @@
+// AI Trading Intelligence Platform — data model
+//
+// Scope is four asset categories: Indian equities (NSE/BSE), forex, crypto and
+// investment products (mutual funds, ETFs, gold, bonds). Nothing else.
+//
+// Money is stored as Decimal, never Float. Binary floating point cannot
+// represent 0.1, and accumulated rounding error in a P&L column is the kind of
+// bug that surfaces as a customer complaint months later.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Enums
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  PRO
+  ADMIN
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+enum AssetClass {
+  EQUITY
+  FOREX
+  CRYPTO
+  INVESTMENT
+}
+
+enum InstrumentKind {
+  STOCK
+  INDEX
+  FOREX
+  CRYPTO
+  MUTUAL_FUND
+  ETF
+  GOLD
+  BOND
+}
+
+enum Exchange {
+  NSE
+  BSE
+  FX
+  CRYPTO
+  AMFI
+}
+
+enum Currency {
+  INR
+  USD
+}
+
+enum Timeframe {
+  M1
+  // Binance-only. Other venues have no native 3-minute bar, so instruments
+  // outside crypto simply never carry this timeframe.
+  M3
+  M5
+  M15
+  M30
+  H1
+  H4
+  D1
+  W1
+  MN1
+}
+
+enum SignalAction {
+  BUY
+  SELL
+  HOLD
+  WAIT
+}
+
+enum SignalStatus {
+  ACTIVE
+  HIT_T1
+  HIT_T2
+  HIT_T3
+  // Price actually traded through the stop. The only status that represents a
+  // real financial loss, and the only one that may ever be counted as one.
+  STOPPED
+  // The validity window elapsed without the entry ever filling.
+  EXPIRED
+
+  // ── Ended by the engine rather than by price ─────────────────
+  // These are *not* losses. Nothing was lost because in CANCELLED the position
+  // was closed on our own terms before the stop, and in INVALID it was never
+  // entered at all. Counting either as a loss would defame the engine with
+  // trades it had the discipline to walk away from, and — worse — would poison
+  // the learning data with failures that never happened.
+
+  // Was filled, then the reasoning broke before price resolved it: confidence
+  // collapsed, structure changed, news landed. Closed early, deliberately.
+  CANCELLED
+  // The setup broke, or was rejected, before the entry ever filled. There was
+  // never a position, so there was never a P&L.
+  INVALID
+}
+// Archiving is deliberately *not* a status — see `archivedAt`. A stopped trade
+// that gets archived is still a stopped trade, and overwriting the status would
+// destroy the one fact the learning data is built from.
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum AlertType {
+  PRICE_ABOVE
+  PRICE_BELOW
+  PERCENT_CHANGE
+  VOLUME_SPIKE
+  RSI_ABOVE
+  RSI_BELOW
+  AI_SIGNAL
+  PATTERN
+  STOP_LOSS
+}
+
+enum AlertChannel {
+  PUSH
+  EMAIL
+  IN_APP
+}
+
+enum TransactionType {
+  BUY
+  SELL
+}
+
+enum Stance {
+  BULLISH
+  BEARISH
+  NEUTRAL
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  ELITE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  TRIAL
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Users & auth
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  // Null for OAuth-only accounts. Argon2id hash — never a plaintext column.
+  passwordHash  String?
+  name          String
+  avatarUrl     String?
+  role          UserRole     @default(USER)
+  provider      AuthProvider @default(LOCAL)
+  providerId    String?
+  emailVerified Boolean      @default(false)
+  isActive      Boolean      @default(true)
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  preferences   UserPreferences?
+  subscription  Subscription?
+  sessions      Session[]
+  watchlists    Watchlist[]
+  holdings      Holding[]
+  transactions  Transaction[]
+  alerts        Alert[]
+  strategies    Strategy[]
+  goals         Goal[]
+  chatSessions  ChatSession[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  verificationTokens VerificationToken[]
+
+  @@index([email])
+  @@index([provider, providerId])
+  @@map("users")
+}
+
+model UserPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  theme             String     @default("dark")
+  defaultAssetClass AssetClass @default(EQUITY)
+  baseCurrency      Currency   @default(INR)
+
+  // Risk parameters. Every calculator and signal card reads these, so they live
+  // in one place rather than being re-entered per screen.
+  capital                 Decimal @default(500000) @db.Decimal(18, 2)
+  riskPerTradePercent     Decimal @default(1) @db.Decimal(5, 2)
+  dailyLossLimitPercent   Decimal @default(3) @db.Decimal(5, 2)
+  weeklyLossLimitPercent  Decimal @default(6) @db.Decimal(5, 2)
+  maxDrawdownPercent      Decimal @default(15) @db.Decimal(5, 2)
+
+  emailNotifications Boolean @default(true)
+  pushNotifications  Boolean @default(true)
+  priceAlerts        Boolean @default(true)
+  signalAlerts       Boolean @default(true)
+  newsAlerts         Boolean @default(false)
+
+  // Telegram delivery. Null means the channel is simply off for this user —
+  // there is no separate enable flag, because a chat id is the enable flag.
+  telegramChatId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+model Session {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // SHA-256 of the refresh token, not the token. A database leak must not hand
+  // an attacker working sessions.
+  refreshTokenHash String   @unique
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String   @unique
+  // EMAIL_VERIFY | PASSWORD_RESET
+  purpose   String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose])
+  @@map("verification_tokens")
+}
+
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tier      SubscriptionTier   @default(FREE)
+  status    SubscriptionStatus @default(ACTIVE)
+  startedAt DateTime           @default(now())
+  expiresAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Instruments & market data
+// ─────────────────────────────────────────────────────────────
+
+model Instrument {
+  id         String         @id @default(cuid())
+  symbol     String         @unique
+  name       String
+  assetClass AssetClass
+  kind       InstrumentKind
+  exchange   Exchange
+  currency   Currency       @default(INR)
+
+  sector   String?
+  industry String?
+  isin     String?
+  // NSE F&O lot size, null for cash-only names.
+  lotSize  Int?
+  tickSize Decimal? @db.Decimal(12, 6)
+
+  // Provider-specific symbol mappings, e.g.
+  //   { "yahoo": "RELIANCE.NS", "binance": null, "amfi": null }
+  // Keeps the provider adapters free of hardcoded lookup tables.
+  providerSymbols Json?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes       Quote[]
+  candles      Candle[]
+  fundamentals Fundamentals?
+  watchlistItems WatchlistItem[]
+  holdings     Holding[]
+  transactions Transaction[]
+  alerts       Alert[]
+  signals      Signal[]
+
+  @@index([assetClass, isActive])
+  @@index([sector])
+  @@map("instruments")
+}
+
+model Quote {
+  id           String     @id @default(cuid())
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+
+  price         Decimal @db.Decimal(18, 6)
+  change        Decimal @db.Decimal(18, 6)
+  changePercent Decimal @db.Decimal(10, 4)
+  open          Decimal @db.Decimal(18, 6)
+  high          Decimal @db.Decimal(18, 6)
+  low           Decimal @db.Decimal(18, 6)
+  previousClose Decimal @db.Decimal(18, 6)
+  volume        Decimal @db.Decimal(20, 2) @default(0)
+
+  marketCap Decimal? @db.Decimal(24, 2)
+  yearHigh  Decimal? @db.Decimal(18, 6)
+  yearLow   Decimal? @db.Decimal(18, 6)
+  bid       Decimal? @db.Decimal(18, 6)
+  ask       Decimal? @db.Decimal(18, 6)
+
+  // Which provider served this tick. Surfaced in the UI so a user can tell a
+  // live price from a fallback.
+  source    String
+  isStale   Boolean  @default(false)
+  updatedAt DateTime @default(now())
+
+  @@unique([instrumentId])
+  @@index([symbol])
+  @@map("quotes")
+}
+
+model Candle {
+  id           String     @id @default(cuid())
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+  timeframe    Timeframe
+
+  time   DateTime
+  open   Decimal  @db.Decimal(18, 6)
+  high   Decimal  @db.Decimal(18, 6)
+  low    Decimal  @db.Decimal(18, 6)
+  close  Decimal  @db.Decimal(18, 6)
+  volume Decimal  @db.Decimal(20, 2) @default(0)
+
+  source    String
+  createdAt DateTime @default(now())
+
+  // One bar per instrument/timeframe/timestamp. Providers re-send overlapping
+  // windows constantly; this makes the upsert trivial and idempotent.
+  @@unique([instrumentId, timeframe, time])
+  @@index([symbol, timeframe, time])
+  @@map("candles")
+}
+
+model Fundamentals {
+  id           String     @id @default(cuid())
+  instrumentId String     @unique
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+
+  marketCap  Decimal? @db.Decimal(24, 2)
+  pe         Decimal? @db.Decimal(12, 4)
+  pb         Decimal? @db.Decimal(12, 4)
+  industryPe Decimal? @db.Decimal(12, 4)
+  evEbitda   Decimal? @db.Decimal(12, 4)
+  dividendYield Decimal? @db.Decimal(8, 4)
+
+  roe             Decimal? @db.Decimal(10, 4)
+  roce            Decimal? @db.Decimal(10, 4)
+  netMargin       Decimal? @db.Decimal(10, 4)
+  operatingMargin Decimal? @db.Decimal(10, 4)
+
+  revenueGrowth Decimal? @db.Decimal(10, 4)
+  profitGrowth  Decimal? @db.Decimal(10, 4)
+  epsGrowth     Decimal? @db.Decimal(10, 4)
+
+  debtToEquity     Decimal? @db.Decimal(10, 4)
+  interestCoverage Decimal? @db.Decimal(10, 4)
+  currentRatio     Decimal? @db.Decimal(10, 4)
+
+  eps       Decimal? @db.Decimal(12, 4)
+  bookValue Decimal? @db.Decimal(14, 4)
+
+  operatingCashFlow Decimal? @db.Decimal(24, 2)
+  freeCashFlow      Decimal? @db.Decimal(24, 2)
+
+  // The Indian-market lens. Promoter pledging in particular has no equivalent
+  // in a generic international model and has preceded several collapses here.
+  promoterHolding Decimal? @db.Decimal(8, 4)
+  promoterPledge  Decimal? @db.Decimal(8, 4)
+  fiiHolding      Decimal? @db.Decimal(8, 4)
+  diiHolding      Decimal? @db.Decimal(8, 4)
+  publicHolding   Decimal? @db.Decimal(8, 4)
+
+  quarterly Json?
+  annual    Json?
+
+  qualityScore    Decimal? @db.Decimal(6, 2)
+  valuationScore  Decimal? @db.Decimal(6, 2)
+  growthScore     Decimal? @db.Decimal(6, 2)
+  healthScore     Decimal? @db.Decimal(6, 2)
+  investmentScore Decimal? @db.Decimal(6, 2)
+  longTermRating  String?
+
+  strengths Json?
+  concerns  Json?
+  summary   String?
+
+  source    String
+  updatedAt DateTime @updatedAt
+
+  @@index([symbol])
+  @@index([investmentScore])
+  @@map("fundamentals")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Watchlists & alerts
+// ─────────────────────────────────────────────────────────────
+
+model Watchlist {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  isDefault Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  items WatchlistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("watchlists")
+}
+
+model WatchlistItem {
+  id          String    @id @default(cuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+
+  note      String?
+  sortOrder Int      @default(0)
+  addedAt   DateTime @default(now())
+
+  @@unique([watchlistId, instrumentId])
+  @@index([watchlistId])
+  @@map("watchlist_items")
+}
+
+model Alert {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+
+  type      AlertType
+  threshold Decimal?  @db.Decimal(18, 6)
+  channels  AlertChannel[]
+  note      String?
+
+  isActive    Boolean   @default(true)
+  triggeredAt DateTime?
+  // Alerts fire once by default; repeatable ones reset after cooldownMinutes.
+  isRepeating     Boolean @default(false)
+  cooldownMinutes Int     @default(60)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isActive])
+  @@index([symbol, isActive])
+  @@map("alerts")
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title   String
+  body    String
+  // ALERT | SIGNAL | NEWS | SYSTEM
+  kind    String
+  symbol  String?
+  link    String?
+  isRead  Boolean  @default(false)
+  readAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Portfolio
+// ─────────────────────────────────────────────────────────────
+
+model Holding {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+
+  quantity     Decimal @db.Decimal(20, 8)
+  averagePrice Decimal @db.Decimal(18, 6)
+  // Realised P&L accumulates here as partial sells happen, so the figure
+  // survives the position being closed entirely.
+  realisedPnl  Decimal @default(0) @db.Decimal(18, 2)
+
+  notes     String?
+  openedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, instrumentId])
+  @@index([userId])
+  @@map("holdings")
+}
+
+model Transaction {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+
+  type     TransactionType
+  quantity Decimal         @db.Decimal(20, 8)
+  price    Decimal         @db.Decimal(18, 6)
+  // Brokerage, STT, exchange charges, GST, stamp duty — the difference between
+  // a backtest and a broker statement.
+  charges  Decimal         @default(0) @db.Decimal(14, 2)
+  notes    String?
+
+  executedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId, executedAt])
+  @@index([symbol])
+  @@map("transactions")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Signals & analysis
+// ─────────────────────────────────────────────────────────────
+
+model Signal {
+  id           String     @id @default(cuid())
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  symbol       String
+  assetClass   AssetClass
+  timeframe    Timeframe
+
+  action     SignalAction
+  confidence Decimal      @db.Decimal(5, 2)
+  horizon    String
+
+  entry     Decimal? @db.Decimal(18, 6)
+  entryLow  Decimal? @db.Decimal(18, 6)
+  entryHigh Decimal? @db.Decimal(18, 6)
+  stopLoss  Decimal? @db.Decimal(18, 6)
+  target1   Decimal? @db.Decimal(18, 6)
+  target2   Decimal? @db.Decimal(18, 6)
+  target3   Decimal? @db.Decimal(18, 6)
+
+  riskLevel       RiskLevel @default(MEDIUM)
+  riskRewardRatio Decimal   @default(0) @db.Decimal(8, 2)
+  riskPercent     Decimal   @default(0) @db.Decimal(8, 4)
+  suggestedAllocationPercent Decimal @default(0) @db.Decimal(6, 2)
+
+  // The full factor breakdown, ranked reasons and forecast, stored verbatim so
+  // a signal can be audited long after the market data has moved on.
+  reasons  Json
+  factors  Json
+  forecast Json?
+  // Measured hit-rate for this instrument/timeframe at the time of issue.
+  calibration Json?
+  explanation String
+
+  status      SignalStatus @default(ACTIVE)
+  outcomeNote String?
+  resolvedAt  DateTime?
+
+  // ── Lifecycle ────────────────────────────────────────────────
+  // When price first traded through the entry. The single fact that separates
+  // a cancelled *position* from a setup that was never taken — and therefore
+  // the fact that decides whether an early exit can have cost anything.
+  entryFilledAt DateTime?
+
+  // No equivalent setup may be re-issued before this instant. Set when the
+  // engine ends a signal on its own terms, so that the next scan cannot simply
+  // re-derive the same conclusion from the same unchanged data and hand back
+  // the signal the engine just rejected.
+  cooldownUntil DateTime?
+
+  // Links a genuinely new signal back to the one it replaces, so a recycled
+  // setup is distinguishable from a real re-entry when auditing after the fact.
+  supersedesId String? @unique
+  supersedes   Signal? @relation("SignalChain", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy Signal? @relation("SignalChain")
+
+  archivedAt DateTime?
+
+  // The precedent check that ran before this signal was issued: which past
+  // setups it resembled, how those ended, and any previously-fatal condition
+  // found present again. Stored so a confidence adjustment can be audited
+  // against what was known then, not against a record that has since grown.
+  precedent Json?
+
+  // ── Post-trade review ────────────────────────────────────────
+  // Written once the signal resolves. Kept on the signal rather than in a
+  // separate table because a post-mortem without its trade is meaningless, and
+  // the join would be on every read of either.
+
+  // One of the failure taxonomy keys, e.g. HTF_CONFLICT, LIQUIDITY_TRAP.
+  primaryReason String?
+  // Full diagnosis: ranked causes, contributors, execution measures.
+  postMortem    Json?
+
+  // Maximum adverse and favourable excursion, in R. The two numbers that
+  // separate an analysis problem from a sizing problem.
+  maeR Decimal? @db.Decimal(8, 3)
+  mfeR Decimal? @db.Decimal(8, 3)
+  // Realised R and what share of the available move was actually captured.
+  realisedR    Decimal? @db.Decimal(8, 3)
+  captureRatio Decimal? @db.Decimal(6, 3)
+  barsHeld     Int?
+
+  // ── Live monitoring ──────────────────────────────────────────
+  // Written by the revalidation job while the signal is open.
+  lastCheckedAt   DateTime?
+  // NONE | WARNING | CRITICAL
+  healthSeverity  String?
+  // The findings from the most recent revalidation, verbatim.
+  healthFindings  Json?
+  // Why the signal was invalidated, when it was.
+  invalidatedAt     DateTime?
+  invalidationReason String?
+
+  // ATR at the moment of issue, so a later volatility expansion is measurable
+  // against what the stop was actually sized for.
+  atrPercentAtIssue Decimal? @db.Decimal(8, 4)
+
+  // Multi-timeframe agreement and the unified score at the moment of issue.
+  // Stored so a signal can be audited against what was known then, not against
+  // what the engine would say today.
+  confluenceScore Decimal? @db.Decimal(5, 1)
+  confluence      Json?
+
+  validUntil DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([symbol, timeframe, createdAt])
+  // The reissue guard runs on every candidate signal of every scan, so the
+  // lookup it depends on gets its own index rather than a partial scan.
+  @@index([symbol, timeframe, action, status])
+  @@index([status, confidence])
+  @@index([createdAt])
+  @@index([primaryReason])
+  @@map("signals")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Adaptive weights
+// ─────────────────────────────────────────────────────────────
+
+/// A proposed or applied set of factor weights, with the evidence behind it.
+///
+/// Every proposal is stored, including rejected ones. The rejections are the
+/// more informative half of the record — they show what the engine tried to
+/// learn and could not confirm, which is exactly the history that stops the
+/// same unproven adjustment being attempted repeatedly.
+model WeightProposal {
+  id String @id @default(cuid())
+
+  // Weights as { "TREND": 0.20, ... }. Sums to 1.0.
+  baseWeights     Json
+  proposedWeights Json
+  changes         Json
+
+  // Per-group measured performance the proposal was derived from.
+  performance Json
+
+  tradesAnalysed Int
+  holdoutSize    Int     @default(0)
+  // Winner/loser separation under each weight set on the holdout.
+  baseSeparation     Decimal? @db.Decimal(10, 6)
+  proposedSeparation Decimal? @db.Decimal(10, 6)
+  edge               Decimal? @db.Decimal(10, 6)
+
+  validated Boolean @default(false)
+  applied   Boolean @default(false)
+  // True only for the weights currently in force. At most one row.
+  isActive  Boolean @default(false)
+  reason    String
+
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("weight_proposals")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  News
+// ─────────────────────────────────────────────────────────────
+
+model NewsItem {
+  id       String @id @default(cuid())
+  // Hash of the URL — RSS feeds repeat items constantly across polls.
+  fingerprint String @unique
+
+  headline    String
+  summary     String
+  url         String
+  source      String
+  publishedAt DateTime
+
+  symbols      String[]
+  assetClasses AssetClass[]
+  category     String?
+
+  stance         Stance   @default(NEUTRAL)
+  confidence     Decimal  @default(0) @db.Decimal(5, 4)
+  impact         String   @default("LOW")
+  whyItMatters   String?
+  expectedImpact String?
+  model          String?
+
+  createdAt DateTime @default(now())
+
+  @@index([publishedAt])
+  @@index([symbols])
+  @@map("news_items")
+}
+
+model EconomicEvent {
+  id String @id @default(cuid())
+
+  title       String
+  country     String   @default("IN")
+  category    String
+  importance  String   @default("MEDIUM")
+  scheduledAt DateTime
+
+  actual   String?
+  forecast String?
+  previous String?
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scheduledAt])
+  @@map("economic_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Strategies & backtests
+// ─────────────────────────────────────────────────────────────
+
+model Strategy {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String @default("")
+
+  universe  AssetClass[]
+  symbols   String[]
+  timeframe Timeframe    @default(D1)
+
+  // Condition trees from the no-code builder. Schema-on-read: the builder and
+  // the Python evaluator agree on the shape, and a rigid relational model here
+  // would make adding an operator a migration.
+  entryRules Json
+  exitRules  Json
+
+  riskPerTradePercent Decimal  @default(1) @db.Decimal(5, 2)
+  stopLossPercent     Decimal? @db.Decimal(6, 2)
+  takeProfitPercent   Decimal? @db.Decimal(6, 2)
+  useAtrStop          Boolean  @default(false)
+  atrMultiplier       Decimal  @default(2) @db.Decimal(5, 2)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  backtests Backtest[]
+
+  @@index([userId])
+  @@map("strategies")
+}
+
+model Backtest {
+  id         String   @id @default(cuid())
+  strategyId String
+  strategy   Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  symbol         String
+  fromDate       DateTime
+  toDate         DateTime
+  initialCapital Decimal  @db.Decimal(18, 2)
+  finalCapital   Decimal  @db.Decimal(18, 2)
+
+  totalReturn  Decimal @db.Decimal(10, 4)
+  cagr         Decimal @db.Decimal(10, 4)
+  winRate      Decimal @db.Decimal(6, 2)
+  profitFactor Decimal @db.Decimal(10, 4)
+  sharpeRatio  Decimal @db.Decimal(8, 4)
+  sortinoRatio Decimal @db.Decimal(8, 4)
+  maxDrawdown  Decimal @db.Decimal(8, 4)
+  expectancy   Decimal @db.Decimal(14, 4)
+
+  totalTrades   Int
+  winningTrades Int
+  losingTrades  Int
+
+  equityCurve Json
+  trades      Json
+  monthlyReturns Json?
+  // Small sample sizes, survivorship bias, cost assumptions. Persisted so the
+  // caveats travel with the result rather than living only in the UI.
+  warnings    Json
+
+  createdAt DateTime @default(now())
+
+  @@index([strategyId, createdAt])
+  @@map("backtests")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Investment planning
+// ─────────────────────────────────────────────────────────────
+
+model Goal {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name           String
+  targetAmount   Decimal @db.Decimal(18, 2)
+  currentSavings Decimal @default(0) @db.Decimal(18, 2)
+  years          Int
+  expectedReturn Decimal @default(12) @db.Decimal(5, 2)
+  inflationRate  Decimal @default(6) @db.Decimal(5, 2)
+
+  // Cached plan output so the dashboard doesn't recompute on every render.
+  plan Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("goals")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Assistant
+// ─────────────────────────────────────────────────────────────
+
+model ChatSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title    String   @default("New conversation")
+  symbol   String?
+  messages ChatMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  role    String
+  content String
+  // Which analysis the answer was grounded in — makes an answer reproducible.
+  context Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Operations
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action     String
+  resource   String?
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model ProviderHealth {
+  id       String @id @default(cuid())
+  provider String @unique
+
+  isHealthy       Boolean   @default(true)
+  lastSuccessAt   DateTime?
+  lastFailureAt   DateTime?
+  consecutiveFailures Int   @default(0)
+  lastError       String?
+  // Rolling average, milliseconds.
+  averageLatencyMs Int      @default(0)
+  requestCount    Int       @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("provider_health")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

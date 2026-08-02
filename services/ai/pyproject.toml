@@ -1,0 +1,44 @@
+[project]
+name = "tip-ai"
+version = "1.0.0"
+description = "Analysis engine for the AI Trading Intelligence Platform"
+requires-python = ">=3.11"
+readme = "README.md"
+
+# Runtime dependencies are pinned in requirements.txt (and requirements-ml.txt
+# for the optional transformer stack). This file exists for tooling config and
+# to make the package importable in editable mode during development.
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+  "E501",   # line length is handled by the formatter
+  "B008",   # FastAPI's Depends() in defaults is the documented pattern
+  "N803",   # camelCase params mirror the JSON wire contract
+  "N815",   # camelCase fields likewise
+]
+
+[tool.ruff.lint.per-file-ignores]
+"selftest.py" = ["E402", "T201"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

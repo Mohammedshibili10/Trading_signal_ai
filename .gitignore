@@ -1,0 +1,40 @@
+node_modules/
+.next/
+dist/
+build/
+out/
+coverage/
+
+# Every env file is ignored, then the template is allowed back. The previous
+# list named `.env` and `.env.*.local` specifically, which left `.env.production`
+# — the one holding live credentials — tracked.
+.env*
+!.env.example
+
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+.DS_Store
+Thumbs.db
+
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.model_cache/
+
+apps/api/prisma/*.db
+postgres-data/
+redis-data/
+.turbo/
+tsconfig.tsbuildinfo
+next-env.d.ts
