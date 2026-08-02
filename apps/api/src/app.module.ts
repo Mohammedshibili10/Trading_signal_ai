@@ -7,6 +7,7 @@ import { APP_GUARD } from '@nestjs/core';
 
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
+import { parseRedisUrl } from './redis/redis-url';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -54,12 +55,14 @@ import { HealthModule } from './health/health.module';
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const url = new URL(config.get<string>('redisUrl') ?? 'redis://localhost:6379');
+        // Parsed rather than hand-decomposed: `new URL()` throws with the
+        // whole connection string attached, which put the Redis password into
+        // the deploy log the first time this was misconfigured. It also drops
+        // the scheme, and the scheme is what carries TLS.
+        const redis = parseRedisUrl(config.get<string>('redisUrl') ?? 'redis://localhost:6379');
         return {
           connection: {
-            host: url.hostname,
-            port: Number(url.port || 6379),
-            password: url.password || undefined,
+            ...redis,
             // BullMQ requires this; without it workers throw on reconnect.
             maxRetriesPerRequest: null,
           },

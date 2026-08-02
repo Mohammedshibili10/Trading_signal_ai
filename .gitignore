@@ -38,3 +38,15 @@ redis-data/
 .turbo/
 tsconfig.tsbuildinfo
 next-env.d.ts
+
+# Database dumps: user rows, password hashes, API-linked data. Never committed.
+backups/
+*.sql.gz
+*.dump
+
+# Database dumps, wherever they land. A stray `pg_dump > backup.sql` in the
+# repo root would otherwise be committed — and a dump carries every user row
+# and password hash. Prisma migrations are .sql too, so they are excepted:
+# they are source, not data.
+*.sql
+!apps/api/prisma/migrations/**/*.sql

@@ -81,6 +81,18 @@ export interface AppConfig {
   };
 }
 
+/**
+ * Connection strings that are correct locally and certainly wrong in
+ * production. Matched exactly rather than by hostname: running Postgres on
+ * localhost beside the app on a single VPS is a legitimate deployment, and a
+ * blanket "localhost is forbidden" rule would reject it. What is never
+ * legitimate is shipping with the development *credentials*.
+ */
+const DEV_CONNECTIONS = new Set([
+  'postgresql://tip:tip_password@localhost:5432/tip?schema=public',
+  'redis://localhost:6379',
+]);
+
 const DEV_SECRETS = new Set([
   'dev-access-secret-change-me-in-production',
   'dev-refresh-secret-change-me-in-production',
@@ -230,6 +242,17 @@ export function validateProductionConfig(config: AppConfig): void {
   }
   if (config.jwt.accessSecret === config.jwt.refreshSecret) {
     problems.push('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must differ');
+  }
+  if (DEV_CONNECTIONS.has(config.databaseUrl)) {
+    problems.push(
+      'DATABASE_URL is still the local development database ' +
+        '(localhost with the dev credentials) — set it to your managed Postgres URL',
+    );
+  }
+  if (DEV_CONNECTIONS.has(config.redisUrl)) {
+    problems.push(
+      'REDIS_URL is still the local development instance — set it to your managed Redis URL',
+    );
   }
   if (config.jwt.accessSecret.length < 32) {
     problems.push('JWT_ACCESS_SECRET must be at least 32 characters');
