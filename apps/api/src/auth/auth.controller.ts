@@ -224,10 +224,12 @@ export class AuthController {
     return {
       httpOnly: true,
       secure,
-      // 'lax' still sends the cookie on the Google OAuth top-level redirect,
-      // while blocking it on cross-site subrequests. 'strict' would break the
-      // callback; 'none' would require secure and weaken CSRF protection.
-      sameSite: 'lax',
+      // 'lax' by default: it still rides the Google OAuth top-level redirect
+      // while blocking cross-site subrequests, and 'strict' would break that
+      // callback. Configurable because a frontend and API on different
+      // registrable domains — vercel.app and onrender.com, say — are cross-site,
+      // and there 'lax' means the refresh cookie is never sent at all.
+      sameSite: this.config.get<'lax' | 'none' | 'strict'>('cookie.sameSite') ?? 'lax',
       path: '/',
       domain: this.config.get<string>('cookie.domain') || undefined,
       maxAge: 30 * 24 * 60 * 60 * 1000,

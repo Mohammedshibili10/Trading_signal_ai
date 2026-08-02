@@ -23,6 +23,7 @@ export interface AppConfig {
   cookie: {
     domain: string;
     secure: boolean;
+    sameSite: 'lax' | 'none' | 'strict';
   };
 
   google: {
@@ -103,9 +104,31 @@ export default (): AppConfig => {
   const nodeEnv = (process.env.NODE_ENV ?? 'development') as AppConfig['nodeEnv'];
   const isProd = nodeEnv === 'production';
 
+  /**
+   * Cross-site cookies need `none`; same-site deployments should keep `lax`.
+   *
+   * The refresh token rides in a cookie, and the browser decides whether to
+   * send it by comparing *registrable domains* — not origins. A frontend on
+   * vercel.app calling an API on onrender.com is cross-site, so a `lax` cookie
+   * is stored and then never sent again: login appears to work and the session
+   * dies at the first refresh, which is a miserable thing to debug.
+   *
+   * Serving both from one parent domain (app.example.com + api.example.com
+   * with COOKIE_DOMAIN=.example.com) makes them same-site, and `lax` is then
+   * the better choice because it keeps the CSRF protection that `none` gives up.
+   */
+  const sameSite = ((): 'lax' | 'none' | 'strict' => {
+    const raw = (process.env.COOKIE_SAMESITE ?? '').toLowerCase();
+    return raw === 'none' || raw === 'strict' || raw === 'lax' ? raw : 'lax';
+  })();
+
   return {
     nodeEnv,
-    port: int(process.env.API_PORT, 4000),
+    // `PORT` first: every managed host — Render, Railway, Fly, Heroku — assigns
+    // a port and expects the process to bind exactly that one. Reading only
+    // API_PORT meant binding 4000 while the platform watched a different port,
+    // and the deploy fails its health check for a reason nothing logs.
+    port: int(process.env.PORT ?? process.env.API_PORT, 4000),
     corsOrigins: list(process.env.CORS_ORIGINS, ['http://localhost:3000']),
     databaseUrl:
       process.env.DATABASE_URL ?? 'postgresql://tip:tip_password@localhost:5432/tip?schema=public',
@@ -119,8 +142,15 @@ export default (): AppConfig => {
     },
 
     cookie: {
-      domain: process.env.COOKIE_DOMAIN ?? 'localhost',
-      secure: isProd,
+      // Empty in production means a host-only cookie scoped to the API's own
+      // domain, which is what a managed host wants. Defaulting to 'localhost'
+      // there would scope the cookie to a domain the browser will never match,
+      // so it is set, returned, and then silently ignored forever.
+      domain: process.env.COOKIE_DOMAIN ?? (isProd ? '' : 'localhost'),
+      // 'none' forces Secure — browsers reject the combination otherwise, and
+      // the cookie is silently dropped rather than rejected loudly.
+      secure: isProd || sameSite === 'none',
+      sameSite,
     },
 
     google: {
