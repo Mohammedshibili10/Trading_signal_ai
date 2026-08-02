@@ -39,7 +39,7 @@ async function bootstrap(): Promise<void> {
   // Refuses to boot in production with dev secrets. See configuration.ts.
   validateProductionConfig(appConfig);
 
-  app.setGlobalPrefix('api/v1', { exclude: ['health', 'health/ready'] });
+  app.setGlobalPrefix('api/v1', { exclude: ['health', 'health/ready', 'health/config'] });
 
   app.use(cookieParser());
   app.use(

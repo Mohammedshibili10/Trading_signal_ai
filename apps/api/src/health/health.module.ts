@@ -6,6 +6,7 @@ import { AiClientService } from '../analysis/ai-client.service';
 import { Public } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('health')
 @Controller('health')
@@ -14,7 +15,36 @@ class HealthController {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly ai: AiClientService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * What this instance actually believes its configuration to be.
+   *
+   * Exists because a CORS misconfiguration is invisible from both ends: the
+   * server logs a successful request, and the browser reports only that a
+   * header is absent. Neither side can see the allow-list the running process
+   * is using, so verifying it meant redeploying and reading boot logs.
+   *
+   * Only non-secret values — origins and whether a dependency URL is set, never
+   * the credential itself.
+   */
+  @Public()
+  @Get('config')
+  @ApiOperation({ summary: 'Effective non-secret runtime configuration' })
+  effectiveConfig() {
+    const origins = this.config.get<string[]>('corsOrigins') ?? [];
+    const aiUrl = this.config.get<string>('ai.url') ?? '';
+    return {
+      nodeEnv: this.config.get<string>('nodeEnv'),
+      corsOrigins: origins,
+      corsAllowsLocalhostOnly: origins.every((o) => o.includes('localhost')),
+      aiServiceUrl: aiUrl,
+      aiServiceConfigured: !aiUrl.includes('localhost'),
+      cookieSameSite: this.config.get<string>('cookie.sameSite'),
+      cookieDomain: this.config.get<string>('cookie.domain') || '(host-only)',
+    };
+  }
 
   /** Liveness. Must stay cheap — orchestrators hit it constantly. */
   @Public()
