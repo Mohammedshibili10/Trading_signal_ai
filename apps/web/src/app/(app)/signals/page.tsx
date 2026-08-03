@@ -12,10 +12,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InfoTip } from '@/components/ui/tooltip';
 import { EmptyState } from '@/components/market/primitives';
 import { endpoints } from '@/lib/api';
 import { useLiveSignals } from '@/lib/realtime';
-import { ASSET_CLASSES, ASSET_CLASS_MAP } from '@/lib/constants';
+import { ASSET_CLASSES, ASSET_CLASS_MAP, HORIZONS, horizonFor } from '@/lib/constants';
+import type { Horizon } from '@/lib/constants';
 import { formatPercent, formatPrice, formatRelative } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { statusMeta } from '@/lib/signal-status';
@@ -57,6 +59,30 @@ export default function SignalsPage() {
       .filter((signal) => assetClass === 'ALL' || signal.assetClass === assetClass)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [storedSignals, pushed, assetClass]);
+
+  /**
+   * Split by trade horizon.
+   *
+   * One flat list mixed a 15-minute scalp with a multi-month position and left
+   * the reader to tell them apart from a small badge. They are different
+   * decisions with different position sizes, different stops and different
+   * amounts of attention — an intraday signal that is four hours old is
+   * probably gone, while a positional one four hours old is untouched. Sections
+   * make the horizon the first thing read rather than the last.
+   */
+  const sections = useMemo(() => {
+    const order: Horizon[] = ['INTRADAY', 'SWING', 'POSITIONAL', 'LONG_TERM'];
+    const buckets = new Map<Horizon, TradeSignal[]>(order.map((key) => [key, []]));
+
+    for (const signal of signals) {
+      const horizon = horizonFor(signal.horizon, signal.timeframe);
+      buckets.get(horizon.key)?.push(signal);
+    }
+
+    return order
+      .map((key) => ({ meta: HORIZONS[key], signals: buckets.get(key) ?? [] }))
+      .filter((section) => section.signals.length > 0);
+  }, [signals]);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
@@ -103,9 +129,23 @@ export default function SignalsPage() {
           action={<ScanButton assetClass={assetClass} onDone={() => stored.refetch()} />}
         />
       ) : (
-        <div className="flex flex-col gap-3">
-          {signals.map((signal) => (
-            <SignalRow key={signal.id} signal={signal} />
+        <div className="flex flex-col gap-7">
+          {sections.map((section) => (
+            <section key={section.meta.key} className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-b border-border pb-2">
+                <h2 className="text-[15px] font-semibold tracking-tight">
+                  {section.meta.label}
+                </h2>
+                <Badge variant="secondary">{section.signals.length}</Badge>
+                <p className="text-[12px] text-muted-foreground">
+                  {section.meta.description} Typical hold: {section.meta.holding.toLowerCase()}.
+                </p>
+              </div>
+
+              {section.signals.map((signal) => (
+                <SignalRow key={signal.id} signal={signal} />
+              ))}
+            </section>
           ))}
         </div>
       )}
@@ -197,6 +237,7 @@ function SignalRow({ signal }: { signal: TradeSignal }) {
   const meta = ASSET_CLASS_MAP[signal.assetClass];
   const t1 = signal.targets?.[0];
   const calibration = signal.calibration;
+  const horizon = horizonFor(signal.horizon, signal.timeframe);
 
   return (
     <Link href={`/markets/${signal.symbol}`}>
@@ -213,6 +254,11 @@ function SignalRow({ signal }: { signal: TradeSignal }) {
                     {meta.short}
                   </Badge>
                 )}
+                <InfoTip
+                  content={`${horizon.description} Typical hold: ${horizon.holding.toLowerCase()}.`}
+                >
+                  <Badge variant="outline">{horizon.label}</Badge>
+                </InfoTip>
                 <Badge variant="secondary">{signal.timeframe}</Badge>
                 {signal.status !== 'ACTIVE' && (
                   // Was: green for anything that was not a stop-out, which

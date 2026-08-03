@@ -5,6 +5,8 @@ import { AlertTriangle, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { InfoTip } from '@/components/ui/tooltip';
+import { horizonFor } from '@/lib/constants';
 import { formatPercent, formatPrice } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { TradeSignal } from '@/types';
@@ -50,6 +52,7 @@ export function SignalPanel({
   }
 
   const isBuy = signal.action === 'BUY';
+  const horizon = horizonFor(signal.horizon, signal.timeframe);
 
   return (
     <div className="flex flex-col gap-4">
@@ -61,7 +64,11 @@ export function SignalPanel({
                 <Badge variant={isBuy ? 'bull' : 'bear'}>{signal.action}</Badge>
                 <span className="text-[15px] font-semibold">{signal.symbol}</span>
                 <Badge variant="secondary">{signal.timeframe}</Badge>
-                <Badge variant="outline">{signal.horizon.replace('_', ' ').toLowerCase()}</Badge>
+                <InfoTip
+                  content={`${horizon.description} Typical hold: ${horizon.holding.toLowerCase()}.`}
+                >
+                  <Badge variant="outline">{horizon.label} trade</Badge>
+                </InfoTip>
               </div>
               <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
                 {signal.explanation}

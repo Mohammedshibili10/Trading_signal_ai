@@ -71,11 +71,13 @@ def _run(request: AnalysisRequest) -> dict[str, Any]:
         fundamentals=request.fundamentals,
         risk_per_trade=request.riskPerTradePercent,
         with_calibration=request.withCalibration,
+        precomputed_calibration=request.calibration,
         factor_weights=request.factorWeights,
         # Passed separately because `to_frame` keeps only OHLCV — the taker-side
         # fields would be dropped on the way in otherwise.
         raw_candles=[c.model_dump() for c in request.candles],
         order_book=request.orderBook.model_dump() if request.orderBook else None,
+        derivatives=request.derivatives.model_dump() if request.derivatives else None,
     )
 
 

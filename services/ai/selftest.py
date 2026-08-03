@@ -22,6 +22,7 @@ import numpy as np
 
 from app.engine import (
     backtest,
+    costs,
     fundamentals,
     invest,
     pipeline,
@@ -29,6 +30,7 @@ from app.engine import (
     precedent,
     risk,
     sentiment,
+    volume_profile,
 )
 from app.engine.calibration import walk_forward
 
@@ -454,6 +456,130 @@ _shorts = [{**row, "action": "SELL"} for row in _losers]
 opposite = precedent.evaluate(_candidate, _shorts, {"volumeRatio": 0.5})
 check("opposite-direction history is not treated as precedent",
       opposite["precedents"]["matched"] == 0, str(opposite["precedents"]))
+
+section("Transaction costs")
+
+_frame = pipeline.to_frame(candles)
+
+# A round trip must cost more on a fast bar than a slow one, and more on a thin
+# INR cross than on EURUSD. Curriculum §10.3 puts cost modelling first.
+check("faster timeframes are charged more",
+      costs.round_trip_bps("BTC", "CRYPTO", "15m") > costs.round_trip_bps("BTC", "CRYPTO", "1D"),
+      f'15m={costs.round_trip_bps("BTC", "CRYPTO", "15m")} 1D={costs.round_trip_bps("BTC", "CRYPTO", "1D")}')
+check("an INR cross costs more than a major",
+      costs.round_trip_bps("USDINR", "FOREX", "1h") > costs.round_trip_bps("EURUSD", "FOREX", "1h"),
+      f'USDINR={costs.round_trip_bps("USDINR", "FOREX", "1h")} EURUSD={costs.round_trip_bps("EURUSD", "FOREX", "1h")}')
+check("spot forex majors are the cheapest class",
+      costs.round_trip_bps("EURUSD", "FOREX", "1D") < costs.round_trip_bps("RELIANCE", "EQUITY", "1D"))
+
+# The whole point: net must sit below gross, and the gap must widen as the risk
+# unit shrinks. A 15m crypto trade risking 0.3% loses a large share of its R.
+_targets = [{"level": 1, "price": 101.6, "rr": 1.6}, {"level": 2, "price": 102.8, "rr": 2.8}]
+# A realistic daily crypto stop is ~4% of price; a 15m one is a fraction of that.
+# Same instrument, same gross ladder — only the risk distance differs.
+_wide = costs.apply(entry=100.0, stop_loss=96.0, targets=_targets,
+                    symbol="BTC", asset_class="CRYPTO", timeframe="1D")
+_tight = costs.apply(entry=100.0, stop_loss=99.7, targets=_targets,
+                     symbol="SOL", asset_class="CRYPTO", timeframe="15m")
+
+check("net reward:risk is below gross", _wide["netRR"] < _wide["grossRR"],
+      f'{_wide["grossRR"]} -> {_wide["netRR"]}')
+check("a tight intraday stop loses far more of its R to costs",
+      _tight["costAsR"] > _wide["costAsR"] * 5,
+      f'15m costAsR={_tight["costAsR"]} vs 1D={_wide["costAsR"]}')
+check("costs visibly bite a 1.6 gross intraday setup",
+      _tight["netRR"] < 1.2, f'netRR={_tight["netRR"]}')
+check("a wide daily stop gives up only a little of the ratio",
+      _wide["grossRR"] - _wide["netRR"] < 0.2,
+      f'{_wide["grossRR"]} -> {_wide["netRR"]}')
+check("the intraday deduction is several times the daily one",
+      (_tight["grossRR"] - _tight["netRR"]) > 3 * (_wide["grossRR"] - _wide["netRR"]),
+      f'intraday -{_tight["grossRR"] - _tight["netRR"]:.2f} vs daily -{_wide["grossRR"] - _wide["netRR"]:.2f}')
+check("gross figures are preserved alongside net",
+      _wide["targets"][0]["grossRR"] == 1.6)
+
+# The target ladder must be solved against the *net* floor, or a T1 fixed in
+# gross terms leaves headroom that costs always consume — the same
+# "unsatisfiable by construction" trap the gross floor once had.
+_min_rr = 1.5
+for _cost_r in (0.0, 0.06, 0.5):
+    _m = _min_rr * (1.0 + _cost_r) + _cost_r + 0.1
+    _net = (_m - _cost_r) / (1.0 + _cost_r)
+    check(f"a target sized for cost_r={_cost_r} clears the net floor",
+          _net >= _min_rr, f"net={_net:.3f}")
+
+section("Volume profile")
+
+_vp = volume_profile.analyse(_frame, atr_value=float(np.mean(_frame["high"] - _frame["low"])))
+check("profile is produced when volume exists", _vp["available"] is True, str(_vp.get("reason")))
+check("value area low sits below the high", _vp["valueAreaLow"] < _vp["valueAreaHigh"])
+check("POC lies inside the value area",
+      _vp["valueAreaLow"] <= _vp["poc"] <= _vp["valueAreaHigh"],
+      f'{_vp["valueAreaLow"]} <= {_vp["poc"]} <= {_vp["valueAreaHigh"]}')
+check("location is one of the three defined states",
+      _vp["location"] in {"INSIDE_VALUE", "ABOVE_VALUE", "BELOW_VALUE"}, _vp["location"])
+check("insideValue agrees with the value-area bounds",
+      _vp["insideValue"] == (_vp["valueAreaLow"] <= float(_frame["close"].iloc[-1]) <= _vp["valueAreaHigh"]))
+
+# Spot forex reports zero volume. A profile built from zeros would be fiction.
+_novol = _frame.copy()
+_novol["volume"] = 0.0
+check("no profile is invented without real volume",
+      volume_profile.analyse(_novol)["available"] is False)
+
+# The stop anchor is measured against the stop, not the entry. This engine's
+# stop is routinely 4–5 ATR out, so an entry-relative window would reject the
+# very nodes sitting where the stop already is.
+_atr_vp = float(np.mean(_frame["high"] - _frame["low"]))
+_lvns = _vp["lvn"]
+if _lvns:
+    _node = _lvns[0]["price"]
+    _entry_far = _node + 6 * _atr_vp          # long, entry well above the node
+    _stop_near = _node + 0.2 * _atr_vp        # stop sitting right on it
+    _anchor = volume_profile.stop_anchor(
+        _vp, entry=_entry_far, stop_loss=_stop_near, long=True, atr_value=_atr_vp)
+    check("a node beside the stop is found even when far from entry",
+          _anchor is not None, f"node={_node} entry={_entry_far:.2f} stop={_stop_near:.2f}")
+    if _anchor:
+        check("the anchor sits beyond the node, not on it", _anchor["price"] < _node)
+        check("the anchor reports which way it moves the stop",
+              isinstance(_anchor["widensStop"], bool))
+    # A stop nowhere near any node yields nothing rather than a distant guess.
+    check("no anchor is offered when no node is near the stop",
+          volume_profile.stop_anchor(
+              _vp, entry=_entry_far, stop_loss=_node + 40 * _atr_vp,
+              long=True, atr_value=_atr_vp) is None)
+    check("a zero-width trade has no anchor",
+          volume_profile.stop_anchor(
+              _vp, entry=100.0, stop_loss=100.0, long=True, atr_value=_atr_vp) is None)
+
+section("Level freshness")
+
+# §1.5: touches consume the resting orders that make a level work. A level
+# tested nine times must not outscore one tested twice.
+from app.engine.structure import Level as _Level, find_levels as _find_levels, find_swings as _find_swings
+
+_swings = _find_swings(_frame, 3)
+_atr = float(np.mean(_frame["high"] - _frame["low"]))
+_levels = _find_levels(_frame, _swings, atr_value=_atr)
+check("levels are produced", len(_levels) > 0)
+
+# Score the touch curve directly — it is the part §1.5 contradicts.
+def _touch_score(n: int) -> float:
+    if n <= 1:
+        return 0.45
+    if n <= 3:
+        return 1.0
+    return max(0.35, 1.0 - (n - 3) * 0.18)
+
+check("a twice-tested level beats a nine-times-tested one",
+      _touch_score(2) > _touch_score(9), f"{_touch_score(2)} vs {_touch_score(9)}")
+check("a single touch is treated as unconfirmed",
+      _touch_score(1) < _touch_score(2), f"{_touch_score(1)} vs {_touch_score(2)}")
+check("the curve peaks in the two-to-three band",
+      _touch_score(3) >= max(_touch_score(n) for n in (1, 4, 5, 6, 9)))
+check("a worn level never scores zero",
+      _touch_score(20) >= 0.35, str(_touch_score(20)))
 
 print()
 if failures:

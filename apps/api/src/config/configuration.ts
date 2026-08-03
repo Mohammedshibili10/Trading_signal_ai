@@ -66,6 +66,19 @@ export interface AppConfig {
   notifications: {
     /** Bot token from @BotFather. Empty disables the Telegram channel entirely. */
     telegramBotToken: string;
+    /**
+     * A chat, group or channel that receives **every** issued signal.
+     *
+     * Independent of per-user linking. Without it a signal only reaches people
+     * who have connected their own chat, which means a freshly deployed
+     * instance issues signals that Telegram never hears about — the delivery
+     * looks broken when it is merely unaddressed.
+     *
+     * A channel id looks like `-1001234567890`; a group id is negative; a
+     * direct chat is a positive number. The bot must be a member of the
+     * channel or group, with permission to post.
+     */
+    telegramChatId: string;
   };
 
   autoscan: {
@@ -198,6 +211,13 @@ export default (): AppConfig => {
 
     notifications: {
       telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
+      // `TELEGRAM_CHANNEL_ID` accepted as an alias because "channel" is what
+      // the value is called everywhere in Telegram's own UI.
+      telegramChatId: (
+        process.env.TELEGRAM_CHAT_ID ??
+        process.env.TELEGRAM_CHANNEL_ID ??
+        ''
+      ).trim(),
     },
 
     autoscan: {

@@ -27,6 +27,7 @@ finds a reason to trade in every market state is not a filter.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -35,6 +36,8 @@ import pandas as pd
 
 from .indicators import compute_all, last_valid
 from .structure import classify_trend, detect_structure_breaks, find_swings, swing_window_for
+
+logger = logging.getLogger(__name__)
 
 #: Every timeframe the platform understands, from fastest to slowest.
 ALL_TIMEFRAMES: tuple[str, ...] = (
@@ -210,11 +213,23 @@ def read_timeframe(timeframe: str, candles: list[dict[str, Any]]) -> TimeframeRe
     swings = find_swings(df, window)
     trend = classify_trend(swings, last_valid(ind.get("adx")))
 
+    # `detect_structure_breaks` takes no ATR — it confirms a break on the close
+    # beyond the swing, not on a volatility buffer. Passing `atr_value=` raised
+    # TypeError on *every* timeframe of *every* instrument, and the except below
+    # swallowed it, so `structure_score` was silently 0 everywhere. Alignment is
+    # `trend * 0.65 + structure * 0.35`, so a permanently-zero structure axis
+    # capped alignment at 65 against a floor of 55 — the confluence gate could
+    # only open on near-unanimous trend agreement (≥ 84.6%) and in practice
+    # never did. That is why the autonomous scanner issued nothing.
+    #
+    # The failure is now logged rather than discarded: one timeframe must not
+    # fail the set, but it must also not fail in silence.
     breaks: list[dict[str, Any]] = []
     if atr_value > 0:
         try:
-            breaks = detect_structure_breaks(df, swings, atr_value=atr_value)
-        except Exception:  # noqa: BLE001 — one timeframe must not fail the set
+            breaks = detect_structure_breaks(df, swings)
+        except Exception as error:  # noqa: BLE001 — one timeframe must not fail the set
+            logger.warning("structure read failed on %s: %s", timeframe, error)
             breaks = []
 
     structure_score, structure_event = _structure_score(breaks)

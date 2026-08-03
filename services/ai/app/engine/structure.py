@@ -190,6 +190,7 @@ def find_levels(
     *,
     atr_value: float,
     max_levels: int = 8,
+    profile: dict[str, Any] | None = None,
 ) -> list[Level]:
     """
     Cluster swing points into support/resistance zones and score them.
@@ -197,6 +198,14 @@ def find_levels(
     Strength (0–100) combines four things, per docs/trading-concepts.md §2.1:
     touch count, recency, reaction size, and volume at the level. A level nobody
     has traded against recently is not a level.
+
+    `profile` is an optional volume profile. docs/trading-curriculum.md §1.5
+    lists four independent origins a zone can have — swing points, volume-profile
+    HVNs, prior period extremes, round numbers — and says "the strongest zones
+    combine origins". Swings were the only origin the engine used, so a swing low
+    that also sits on a high-volume node scored identically to one sitting on
+    thin air, despite the two being very different levels. An HVN within the
+    clustering tolerance of a swing cluster now corroborates it.
     """
     if not swings or atr_value <= 0:
         return []
@@ -215,6 +224,13 @@ def find_levels(
 
     volumes = df["volume"].to_numpy(dtype=float)
     avg_volume = float(np.mean(volumes)) if volumes.size and np.mean(volumes) > 0 else 0.0
+
+    # High-volume nodes, as a corroborating second origin. Empty when the
+    # profile is unavailable (spot forex has no true volume), in which case
+    # scoring is unchanged from before.
+    hvn_prices: list[float] = []
+    if profile and profile.get("available"):
+        hvn_prices = [float(node["price"]) for node in profile.get("hvn", [])]
 
     levels: list[Level] = []
     for cluster in clusters:
@@ -242,12 +258,46 @@ def find_levels(
             else 1.0
         )
 
+        # ── Touches: loaded, then consumed ───────────────────────
+        #
+        # Strength used to rise monotonically with touch count — `min(touches/4,
+        # 1) * 40` — so a level tested nine times scored the maximum and a level
+        # tested twice scored half. docs/trading-curriculum.md §1.5 says that is
+        # backwards, and gives the mechanism: "Each touch *consumes* the resting
+        # orders that make the level work. First test: strongest. Third or
+        # fourth test: the level is thin — breakout becomes likely… more touches
+        # make a level more *visible*, but less *loaded*."
+        #
+        # So the curve peaks at two-to-three touches and decays after. One touch
+        # is unconfirmed — it may not be a level at all. Two or three is a level
+        # that has proven itself and still has orders behind it. Beyond that,
+        # each retest has eaten more of the resting liquidity than it added
+        # confirmation, and the honest read is a level about to give way.
+        #
+        # This matters well beyond the label: level strength gates target
+        # snapping in `signals.build_levels`, which is why a nine-touch support
+        # could previously pull a target in with maximum authority at exactly
+        # the moment it was most likely to break.
+        if touches <= 1:
+            touch_score = 0.45
+        elif touches <= 3:
+            touch_score = 1.0
+        else:
+            touch_score = max(0.35, 1.0 - (touches - 3) * 0.18)
+
         strength = (
-            min(touches / 4.0, 1.0) * 40.0
+            touch_score * 40.0
             + recency * 25.0
             + min(reaction / 3.0, 1.0) * 20.0
             + min(vol_at / 2.0, 1.0) * 15.0
         )
+
+        # Second origin: does a high-volume node sit on this level? §1.5 — "the
+        # strongest zones combine origins". A bonus rather than a component, so
+        # the score keeps its meaning on instruments with no usable volume.
+        on_hvn = any(abs(node - price) <= tolerance for node in hvn_prices)
+        if on_hvn:
+            strength = min(100.0, strength + 12.0)
 
         above = price > current_price
         kind = "RESISTANCE" if above else "SUPPORT"
@@ -261,6 +311,14 @@ def find_levels(
         label = f"{kind.capitalize()} · {touches} touch{'es' if touches > 1 else ''}"
         if was_opposite:
             label += " · polarity flip"
+        # Named, because "tested 9 times" reads as strength to almost everyone
+        # and the engine now means the opposite by it.
+        if touches >= 5:
+            label += " · worn thin"
+        elif touches <= 1:
+            label += " · unconfirmed"
+        if on_hvn:
+            label += " · high-volume node"
 
         levels.append(
             Level(

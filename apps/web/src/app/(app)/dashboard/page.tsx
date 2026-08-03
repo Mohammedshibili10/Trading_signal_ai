@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InfoTip } from '@/components/ui/tooltip';
 import {
   ChangeIndicator,
   EmptyState,
@@ -19,12 +20,24 @@ import {
   StatCard,
 } from '@/components/market/primitives';
 import { endpoints } from '@/lib/api';
-import { ASSET_CLASSES, ASSET_CLASS_MAP } from '@/lib/constants';
+import { ASSET_CLASSES, ASSET_CLASS_MAP, horizonFor } from '@/lib/constants';
+import { statusMeta } from '@/lib/signal-status';
 import { formatCompactINR, formatPercent, formatPrice, formatRelative, truncate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setActiveAssetClass } from '@/store/slices/ui-slice';
 import type { AssetClass, NewsItem, Quote, TradeSignal, Watchlist } from '@/types';
+
+/**
+ * Confidence a signal must carry to reach the dashboard.
+ *
+ * The engine refuses to issue anything below 45, and the scanner will not push
+ * a notification below 62 — the bar for interrupting someone. The dashboard is
+ * the same kind of surface: it is glanced at and trusted, not searched. So it
+ * uses the same 62 rather than inventing a third threshold, and everything
+ * between 45 and 62 stays on the signals page where it can be read in context.
+ */
+const DASHBOARD_MIN_CONFIDENCE = 62;
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -49,10 +62,21 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
+  // The dashboard shows only what can still be acted on.
+  //
+  // Every row here reads as "take this trade", so a cancelled, invalidated,
+  // expired or closed-out setup does not belong: by the time it shows an
+  // outcome the decision it describes has already been made. The full record,
+  // outcomes included, lives on the signals page where it is the point.
   const signals = useQuery({
-    queryKey: ['signals', 'recent'],
+    queryKey: ['signals', 'recent', 'actionable'],
     queryFn: async () =>
-      (await endpoints.analysis.recentSignals(6)).data as { signals: TradeSignal[] },
+      (
+        await endpoints.analysis.recentSignals(6, undefined, {
+          status: 'live',
+          minConfidence: DASHBOARD_MIN_CONFIDENCE,
+        })
+      ).data as { signals: TradeSignal[] },
     staleTime: 60_000,
   });
 
@@ -178,12 +202,22 @@ export default function DashboardPage() {
             ) : (signals.data?.signals?.length ?? 0) === 0 ? (
               <EmptyState
                 icon={CandlestickChart}
-                title="No active signals"
-                description="The engine returns WAIT when no setup clears its risk-reward and confidence floors. That's a normal, and frequent, result."
+                title="Nothing actionable right now"
+                description={
+                  `This panel shows only live setups at ${DASHBOARD_MIN_CONFIDENCE}+ confidence. ` +
+                  'The engine returns WAIT when nothing clears its reward:risk and confidence ' +
+                  "floors — a normal and frequent result. Signals that have since been hit, " +
+                  'stopped or cancelled are kept on the signals page.'
+                }
                 action={
-                  <Button asChild size="sm" variant="outline">
-                    <Link href="/scanners">Run a scanner</Link>
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link href="/signals">See all signals</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href="/scanners">Run a scanner</Link>
+                    </Button>
+                  </div>
                 }
               />
             ) : (
@@ -358,6 +392,7 @@ function SignalCard({ signal }: { signal: TradeSignal }) {
   const isBuy = signal.action === 'BUY';
   const isSell = signal.action === 'SELL';
   const meta = ASSET_CLASS_MAP[signal.assetClass];
+  const horizon = horizonFor(signal.horizon, signal.timeframe);
 
   return (
     <Link href={`/markets/${signal.symbol}`}>
@@ -372,11 +407,33 @@ function SignalCard({ signal }: { signal: TradeSignal }) {
                   {meta.short}
                 </Badge>
               )}
+              {/* What kind of trade this is — the horizon leads, the bar it was
+                  read on follows, because "Swing" is the actionable fact and
+                  "H1" is only how it was derived. */}
+              <InfoTip content={`${horizon.description} Typical hold: ${horizon.holding.toLowerCase()}.`}>
+                <Badge variant="outline">{horizon.label}</Badge>
+              </InfoTip>
               <span className="text-[11px] text-muted-foreground">{signal.timeframe}</span>
+              {/* The feed now carries resolved signals too, so an outcome that
+                  is no longer live has to say so — an unlabelled stopped-out
+                  setup reads as a live call to take it. */}
+              {signal.status && signal.status !== 'ACTIVE' && (
+                <Badge
+                  variant={statusMeta(signal.status).variant}
+                  title={statusMeta(signal.status).hint}
+                >
+                  {statusMeta(signal.status).short}
+                </Badge>
+              )}
             </div>
             <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground">
               {signal.reasons?.[0] ?? signal.explanation}
             </p>
+            {signal.createdAt && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {formatRelative(signal.createdAt)}
+              </p>
+            )}
           </div>
 
           <div className="shrink-0 text-right">

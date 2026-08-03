@@ -18,6 +18,7 @@ import { AiClientService } from './ai-client.service';
 import { AnalysisService } from './analysis.service';
 import { ConfluenceService, type Horizon } from './confluence.service';
 import { ReviewService } from './review.service';
+import { OPEN_STATUSES } from './signal-reissue';
 import { AnalyticsService } from './analytics.service';
 
 const TIMEFRAMES: Timeframe[] = ['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1D', '1W', '1M'];
@@ -155,23 +156,82 @@ export class AnalysisController {
     });
   }
 
+  /**
+   * Recently issued signals — the record, not just what is still open.
+   *
+   * This used to return only `ACTIVE` signals inside their validity window,
+   * which meant a signal vanished the moment it did anything interesting. A
+   * setup that reached its target, got stopped out or expired simply
+   * disappeared from the feed, so the dashboard could only ever show what had
+   * not resolved yet and the engine looked like it had issued almost nothing.
+   *
+   * Everything unarchived is returned instead, with its status, so the feed
+   * reads as a history with outcomes. `?status=live` restores the old
+   * behaviour for callers that genuinely want only actionable setups.
+   */
   @Get('signals/recent')
-  @ApiOperation({ summary: 'Recently issued signals' })
+  @ApiOperation({ summary: 'Recently issued signals, with their outcomes' })
   async recentSignals(
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
     @Query('assetClass') assetClass?: string,
+    @Query('status') status?: string,
+    @Query('minConfidence') minConfidence?: string,
   ) {
+    const now = new Date();
+    const liveOnly = status === 'live';
+    const floor = Number(minConfidence);
+
     const signals = await this.prisma.signal.findMany({
       where: {
-        status: 'ACTIVE',
-        validUntil: { gt: new Date() },
+        // Archived rows are kept for the precedent check but are not feed
+        // material — they are weeks past resolution by the time they get here.
+        archivedAt: null,
+        // `live` means tradeable right now: still ACTIVE, still inside its
+        // validity window. Anything cancelled, invalidated, expired or closed
+        // out is history — useful on the signals page, wrong on a dashboard
+        // where every row reads as a call to act.
+        ...(liveOnly ? { status: 'ACTIVE', validUntil: { gt: now } } : {}),
+        ...(Number.isFinite(floor) && floor > 0 ? { confidence: { gte: floor } } : {}),
         ...(assetClass ? { assetClass: assetClass as never } : {}),
       },
-      orderBy: [{ confidence: 'desc' }, { createdAt: 'desc' }],
+      orderBy: { createdAt: 'desc' },
       take: Math.min(limit ?? 20, 100),
       include: { instrument: { select: { name: true, sector: true } } },
     });
-    return { signals };
+
+    // Newest first, but anything still open floats above the resolved history:
+    // an open position is the only thing on this list that still needs a
+    // decision. Ordering purely by confidence (as before) buried a fresh signal
+    // under an older, more confident one, which is backwards for a feed.
+    const open = new Set<string>(OPEN_STATUSES);
+    const isOpen = (row: { status: string; validUntil: Date | null }) =>
+      open.has(row.status) && (row.validUntil === null || row.validUntil > now);
+
+    signals.sort((a, b) => Number(isOpen(b)) - Number(isOpen(a)));
+
+    // ── One shape for stored and live signals ────────────────────
+    //
+    // The database stores the take-profits as three nullable columns; the
+    // engine, the socket broadcast and the whole client type model use a
+    // `targets` array. The signals feed merges rows from this endpoint with
+    // rows pushed over the socket into a single list, so a row read back from
+    // the database rendered its target column as "—" while an identical
+    // freshly-pushed signal rendered a price — the targets were stored
+    // correctly and displayed nowhere.
+    //
+    // Reshaped here rather than in the client, because every consumer of this
+    // endpoint has the same problem and the API is what defines the contract.
+    const withTargets = signals.map((signal) => ({
+      ...signal,
+      targets: [signal.target1, signal.target2, signal.target3]
+        .map((price, index) => ({
+          level: (index + 1) as 1 | 2 | 3,
+          price: price === null || price === undefined ? null : Number(price),
+        }))
+        .filter((target): target is { level: 1 | 2 | 3; price: number } => target.price !== null),
+    }));
+
+    return { signals: withTargets };
   }
 
   @Public()

@@ -82,6 +82,103 @@ export const TIMEFRAMES: TimeframeMeta[] = [
   { key: '1M', label: '1M', seconds: 2592000, horizon: 'LONG_TERM' },
 ];
 
+/* ── Trade horizon ───────────────────────────────────────── */
+
+/**
+ * Prisma's timeframe spelling → the one used on the client.
+ *
+ * Typed as plain strings rather than `Timeframe`: the engine serves a 3-minute
+ * bar for crypto that the client's union deliberately does not offer, and this
+ * map only exists to normalise a key before lookup.
+ */
+export const PRISMA_TIMEFRAME: Record<string, string> = {
+  M1: '1m',
+  M3: '3m',
+  M5: '5m',
+  M15: '15m',
+  M30: '30m',
+  H1: '1h',
+  H4: '4h',
+  D1: '1D',
+  W1: '1W',
+  MN1: '1M',
+};
+
+export type Horizon = 'INTRADAY' | 'SWING' | 'POSITIONAL' | 'LONG_TERM';
+
+export interface HorizonMeta {
+  key: Horizon;
+  /** What to call the trade on screen. */
+  label: string;
+  /** Expected holding period — the thing a trader actually needs to know. */
+  holding: string;
+  /** One line for the tooltip, so the badge is self-explanatory. */
+  description: string;
+}
+
+/**
+ * How a signal's horizon is presented.
+ *
+ * The horizon is the single most consequential thing about a signal after its
+ * direction: the same setup is a different trade depending on whether it is
+ * meant to be closed before the session ends or held for a quarter. Showing the
+ * raw timeframe alone ("D1") does not say that — a daily bar can drive an
+ * intraday scalp or a multi-month position, so the timeframe is the input and
+ * the horizon is the answer. Both are shown, with the horizon leading.
+ */
+export const HORIZONS: Record<Horizon, HorizonMeta> = {
+  INTRADAY: {
+    key: 'INTRADAY',
+    label: 'Intraday',
+    holding: 'Same session',
+    description: 'Opened and closed within the session — no overnight exposure.',
+  },
+  SWING: {
+    key: 'SWING',
+    label: 'Swing',
+    holding: 'Days to ~2 weeks',
+    description: 'Held for a few days to a couple of weeks, through overnight gaps.',
+  },
+  POSITIONAL: {
+    key: 'POSITIONAL',
+    label: 'Positional',
+    holding: 'Weeks to months',
+    description: 'Held for weeks or months; sized for wider stops and larger swings.',
+  },
+  LONG_TERM: {
+    key: 'LONG_TERM',
+    label: 'Long term',
+    holding: 'Months or longer',
+    description: 'A multi-month view — closer to an investment than a trade.',
+  },
+};
+
+/**
+ * Horizon for a signal, falling back to what the timeframe implies.
+ *
+ * The API sets `horizon` on every signal, but older stored rows and anything
+ * arriving over the socket mid-migration may not carry it. Deriving from the
+ * timeframe mirrors the engine's own `horizon_for` table, so the badge degrades
+ * to the right answer rather than disappearing.
+ */
+export function horizonFor(
+  horizon: string | null | undefined,
+  timeframe?: Timeframe | string | null,
+): HorizonMeta {
+  const direct = horizon ? HORIZONS[horizon.toUpperCase() as Horizon] : undefined;
+  if (direct) return direct;
+
+  // Stored signals carry the Prisma enum spelling (`D1`, `H1`, `M15`), while the
+  // chart and engine use `1D` / `1h` / `15m`. Normalise before matching, or a
+  // signal read back from the database would never find its timeframe.
+  const raw = String(timeframe ?? '').toLowerCase();
+  const key = PRISMA_TIMEFRAME[raw.toUpperCase()]?.toLowerCase() ?? raw;
+  const match = TIMEFRAMES.find(
+    (item) => item.key.toLowerCase() === key || item.label.toLowerCase() === key,
+  );
+  return HORIZONS[match?.horizon ?? 'SWING'];
+}
+
 /** Sensible defaults per category — intraday forex, daily for funds. */
 export const DEFAULT_TIMEFRAME: Record<AssetClass, Timeframe> = {
   EQUITY: '1D',

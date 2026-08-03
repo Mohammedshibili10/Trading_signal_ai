@@ -6,6 +6,7 @@ import { RedisService } from '../redis/redis.service';
 import type { ProviderCandle, Timeframe } from '../market-data/providers/provider.interface';
 import { AiClientService } from './ai-client.service';
 import { ReviewService } from './review.service';
+import { readCalibration, writeCalibration } from './calibration-cache';
 
 export type Horizon = 'INTRADAY' | 'SWING' | 'POSITIONAL' | 'LONG_TERM';
 
@@ -164,6 +165,7 @@ export class ConfluenceService {
         outcomes,
         factorWeights,
         orderBook,
+        derivatives,
       ] = await Promise.all([
           this.marketData.getCandles(instrument.symbol, timeframe, 400),
           this.fetchAll(instrument.symbol, timeframes),
@@ -176,6 +178,11 @@ export class ConfluenceService {
           instrument.assetClass === 'CRYPTO'
             ? this.marketData.getOrderBook(instrument.symbol).catch(() => null)
             : Promise.resolve(null),
+          // Perpetual funding, open interest and positioning. Crypto-only, and
+          // never allowed to fail the analysis — it is context, not a premise.
+          instrument.assetClass === 'CRYPTO'
+            ? this.marketData.getDerivatives(instrument.symbol).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
       if (setup.candles.length < 60) {
@@ -184,7 +191,17 @@ export class ConfluenceService {
         );
       }
 
-      return this.ai.post('/analysis/signal/confluence', {
+      // The walk-forward pass dominates this call and is a function of closed
+      // bars alone, so it is measured once per bar and replayed after that.
+      // This is what makes a gated scan affordable across many instruments.
+      const cachedCalibration = await readCalibration(
+        this.redis,
+        instrument.symbol,
+        timeframe,
+        setup.candles,
+      );
+
+      const result = await this.ai.post('/analysis/signal/confluence', {
         symbol: instrument.symbol,
         name: instrument.name,
         assetClass: instrument.assetClass,
@@ -196,6 +213,7 @@ export class ConfluenceService {
         fundamentals,
         economicEvents,
         orderBook,
+        derivatives,
         openPositions: positions.positions,
         returnsBySymbol: positions.returns,
         outcomes,
@@ -206,7 +224,14 @@ export class ConfluenceService {
         // Calibration is what makes a confidence number mean anything, and this
         // path exists precisely to produce trustworthy numbers.
         withCalibration: true,
+        calibration: cachedCalibration,
       });
+
+      if (!cachedCalibration) {
+        await writeCalibration(this.redis, instrument.symbol, timeframe, setup.candles, result);
+      }
+
+      return result;
     });
   }
 

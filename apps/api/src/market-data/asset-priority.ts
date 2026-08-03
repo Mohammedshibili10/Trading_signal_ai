@@ -29,6 +29,26 @@
 export type AssetTier = 1 | 2 | 3;
 
 /**
+ * Which markets this platform leads with.
+ *
+ * Crypto and forex are the primary focus, so they outrank the other classes at
+ * equal tier. This is a product decision rather than a claim about the assets:
+ * they trade around the clock, so there is always a live read to be had on
+ * them, and a scan budget spent there is spent on something actionable at the
+ * moment it runs — whereas an NSE name is only tradeable for six and a quarter
+ * hours a day.
+ *
+ * Applied as a band above the tier bonus but below the tier itself, so a major
+ * equity still outranks an obscure altcoin. Focus decides ties, not everything.
+ */
+const CLASS_PRIORITY: Record<string, number> = {
+  CRYPTO: 4,
+  FOREX: 4,
+  EQUITY: 1,
+  INVESTMENT: 0,
+};
+
+/**
  * The majors, by asset class.
  *
  * Deliberately short. A list of forty "major" crypto assets is a list of
@@ -36,8 +56,12 @@ export type AssetTier = 1 | 2 | 3;
  * signal is most likely to be both reliable and executable.
  */
 const TIER_ONE: Record<string, string[]> = {
-  CRYPTO: ['BTC', 'ETH', 'SOL'],
-  FOREX: ['EURUSD', 'USDJPY', 'GBPUSD', 'USDINR'],
+  // Widened with the two consistently top-five names by traded volume and the
+  // remaining textbook major pair, now that these are the platform's primary
+  // markets. Still deliberately short — the file's own warning holds: a list of
+  // forty majors is a list of everything.
+  CRYPTO: ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'],
+  FOREX: ['EURUSD', 'USDJPY', 'GBPUSD', 'USDINR', 'AUDUSD'],
   // NIFTY heavyweights: the largest weights in the index, which is where
   // index-driven flow concentrates.
   EQUITY: [
@@ -57,8 +81,8 @@ const TIER_ONE: Record<string, string[]> = {
 
 /** Second tier — liquid and worth scanning, below the headline names. */
 const TIER_TWO: Record<string, string[]> = {
-  CRYPTO: ['BNB', 'XRP', 'ADA', 'AVAX', 'DOGE'],
-  FOREX: ['USDCHF', 'AUDUSD', 'USDCAD', 'EURINR', 'GBPINR'],
+  CRYPTO: ['ADA', 'AVAX', 'DOGE'],
+  FOREX: ['USDCHF', 'USDCAD', 'EURINR', 'GBPINR', 'JPYINR'],
   EQUITY: [
     'AXISBANK',
     'KOTAKBANK',
@@ -130,10 +154,12 @@ export function prioritise<
       const marketCap = marketCaps?.get(instrument.symbol);
       const { tier, reason } = tierFor(instrument.symbol, instrument.assetClass, marketCap);
 
-      // Tier sets the band; log market cap nudges within it so the ordering is
-      // stable rather than alphabetical among equals.
+      // Tier sets the band; asset-class focus orders within it; log market cap
+      // nudges within that so the ordering is stable rather than alphabetical
+      // among equals.
       const liquidityBonus = marketCap ? Math.min(0.9, Math.log10(marketCap) / 15) : 0;
-      const weight = (4 - tier) * 10 + liquidityBonus;
+      const focusBonus = CLASS_PRIORITY[instrument.assetClass] ?? 0;
+      const weight = (4 - tier) * 10 + focusBonus + liquidityBonus;
 
       return { ...instrument, tier, weight, reason };
     })

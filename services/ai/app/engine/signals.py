@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from ..config import settings
+from . import costs
 from .forecast import Forecast
 from .structure import Level
 
@@ -34,6 +35,9 @@ class TradeLevels:
     risk_reward: float
     risk_percent: float
     method: str
+    #: A strong opposing level too close to entry to be a target, when there is
+    #: one. Reported on the signal rather than used to reject it.
+    obstruction: str | None = None
 
 
 def _round(value: float, price: float) -> float:
@@ -55,6 +59,7 @@ def build_levels(
     atr_value: float,
     trend_strength: float,
     setup: str = "MOMENTUM",
+    cost_bps: float = 0.0,
 ) -> TradeLevels | None:
     """
     Entry, stop and targets for the forecast's direction.
@@ -98,22 +103,80 @@ def build_levels(
     if risk_percent > settings.max_stop_distance_percent:
         return None
 
+    # Cost as a fraction of one R — computable only now, because it is the ratio
+    # of a fixed price cost to this setup's risk distance. The same 24 bps is a
+    # rounding error against a 4% daily stop and half the trade against a 0.3%
+    # intraday one, which is exactly why it has to size the targets.
+    cost_r = (entry * cost_bps / 10_000.0) / risk_per_unit if cost_bps > 0 else 0.0
+
     # ── Targets ──────────────────────────────────────────────────
     # R multiples, pulled in to the nearest opposing level when one sits closer.
     # A target beyond a wall of resistance is a target you don't reach.
-    opposing = [lv for lv in levels if (lv.price > entry) == long]
+    #
+    # Two rules decide which levels are allowed to do the pulling, and both
+    # exist because the naive version made the reward:risk floor unreachable.
+    #
+    # **A level price is already standing on is not a target.** The entry zone
+    # is entry ± 0.25 ATR, and structure clusters around the last close by
+    # construction — the most recent swing high sits a fraction of an ATR above
+    # a long entry almost every time. Snapping T1 to it produced targets 0.07R
+    # away on setups that had cleared every other gate (measured: BNB 1h at 68
+    # confidence rejected for 0.08:1, BTC 4h at 59 for 0.07:1, ETH 4h at 56 for
+    # 0.34:1). Those are not walls of resistance, they are the noise band around
+    # the entry, and the stop is 1.8 ATR wide precisely because that band is
+    # expected to be traded through.
+    #
+    # **Below 1R a level cannot define a target at all.** A trade risking 1R to
+    # make less than 1R is not a trade, so a level inside that distance is
+    # information about the entry, not about the exit. It is reported as an
+    # obstruction instead — see `obstruction` below — and the setup is judged on
+    # the first level that could actually be reached for a profit.
+    #
+    # Levels beyond 1R still cap the targets exactly as before, and the 1.5
+    # reward:risk floor still rejects the setup when the first reachable level
+    # sits between 1R and 1.5R. A genuine wall in front of the trade remains a
+    # reason not to take it; the noise around the entry no longer is.
+    # One R. The stop is the wider of the structural and 1.8-ATR candidates, so
+    # this is never narrower than 1.8 ATR — comfortably wider than the entry
+    # zone, which is what makes it the right cut-off for both rules at once.
+    noise_band = risk_per_unit
+
+    opposing = [
+        lv
+        for lv in levels
+        if (lv.price > entry) == long
+        and lv.strength >= 55
+        and abs(lv.price - entry) >= noise_band
+    ]
     opposing.sort(key=lambda lv: abs(lv.price - entry))
 
-    def target_at(multiple: float, index: int) -> float:
+    # The nearest strong level of any distance, kept only so the setup can say
+    # what is standing in front of it.
+    blocking = [
+        lv
+        for lv in levels
+        if (lv.price > entry) == long and lv.strength >= 70 and abs(lv.price - entry) < noise_band
+    ]
+    blocking.sort(key=lambda lv: abs(lv.price - entry))
+
+    def target_at(multiple: float, floor_price: float | None) -> float:
+        """
+        The R-multiple target, capped by the nearest level beyond `floor_price`.
+
+        Indexed by distance rather than by position in the list: the old version
+        handed T2 `opposing[1]` regardless of where T1 had landed, which could
+        place T2 nearer than T1 and force the ordering fix-up below to invent a
+        level nothing supported.
+        """
         raw = entry + risk_per_unit * multiple * (1 if long else -1)
-        if index < len(opposing):
-            lv = opposing[index]
-            # Only pull in if the level is meaningfully strong.
-            if lv.strength >= 55:
-                if long and lv.price < raw:
-                    return lv.price
-                if not long and lv.price > raw:
-                    return lv.price
+        for lv in opposing:
+            if floor_price is not None and (lv.price <= floor_price) == long:
+                continue
+            if long and lv.price < raw:
+                return lv.price
+            if not long and lv.price > raw:
+                return lv.price
+            break
         return raw
 
     # R multiples for the three targets.
@@ -123,14 +186,31 @@ def build_levels(
     # target defined *at* 1R made that check unsatisfiable by construction —
     # every signal was rejected for a reward:risk it was never able to reach.
     #
-    # 1.6 rather than exactly 1.5 so that level-snapping has somewhere to go:
-    # when a strong opposing level sits between 1.5R and 1.6R the target is
-    # pulled in and the setup still clears, and when the level sits nearer than
-    # 1.5R the floor correctly rejects it. A wall of resistance before the first
-    # target is a reason not to take the trade, which is the check working.
-    t1 = target_at(1.6, 0)
-    t2 = target_at(2.8, 1)
-    t3 = target_at(4.2, 2)
+    # The same trap reappears once costs are charged. The floor is applied to
+    # the *net* ratio (docs/trading-curriculum.md §10.3), and net is always below
+    # gross, so a T1 fixed at 1.6 against a 1.5 floor leaves 0.1R of headroom
+    # that any cost at all consumes — on crypto a 24 bps round trip against a 4%
+    # daily stop takes 0.06R and drops 1.60 to 1.45. Fixing T1 in gross terms
+    # therefore reintroduces "unsatisfiable by construction" one layer up.
+    #
+    # So T1 is solved for instead: the gross multiple whose *net* value clears
+    # the floor. Inverting the cost arithmetic, net = (m − c) / (1 + c), so
+    #
+    #     m = floor × (1 + c) + c
+    #
+    # plus the same 0.1 of headroom, which is what lets level-snapping pull the
+    # target in slightly and still clear.
+    #
+    # The consequence is the honest one and it is the point: where costs are
+    # large relative to risk — a 15m intraday setup — the engine now demands a
+    # proportionally larger move before it will call the trade worth taking,
+    # rather than publishing a "1.60:1" that is really 1.07:1. Marginal
+    # intraday setups are suppressed; they are not made impossible.
+    first_multiple = settings.min_risk_reward * (1.0 + cost_r) + cost_r + 0.1
+
+    t1 = target_at(first_multiple, None)
+    t2 = target_at(first_multiple * 1.75, t1)
+    t3 = target_at(first_multiple * 2.6, t2)
 
     # Keep them ordered and meaningfully apart after level snapping.
     #
@@ -171,6 +251,18 @@ def build_levels(
 
     rr_at_t1 = abs(t1 - entry) / risk_per_unit
 
+    # Named rather than hidden. A strong level sitting inside the noise band no
+    # longer caps T1, so the fact that it is there has to be said out loud —
+    # otherwise the setup silently looks cleaner than it is.
+    obstruction: str | None = None
+    if blocking:
+        nearest = blocking[0]
+        obstruction = (
+            f"{nearest.label} at {_round(nearest.price, price)} sits "
+            f"{abs(nearest.price - entry) / entry * 100.0:.2f}% from entry — inside the noise band, "
+            "so it caps neither target, but price has to get through it first."
+        )
+
     return TradeLevels(
         entry=_round(entry, price),
         entry_zone=(_round(entry_zone[0], price), _round(entry_zone[1], price)),
@@ -179,6 +271,7 @@ def build_levels(
         risk_reward=round(rr_at_t1, 2),
         risk_percent=round(risk_percent, 2),
         method="structural" if abs(stop - structural) < abs(stop - volatility) else "ATR-based",
+        obstruction=obstruction,
     )
 
 
@@ -216,6 +309,7 @@ def rejection_reason(
     trade: TradeLevels | None,
     regime: dict[str, Any],
     factors_conflict: bool,
+    costs: dict[str, Any] | None = None,
 ) -> str | None:
     """
     Why no trade. Returns None when the setup passes every gate.
@@ -245,6 +339,24 @@ def rejection_reason(
             f"Reward-to-risk of {trade.risk_reward:.2f} at the first target is below the "
             f"{settings.min_risk_reward} minimum. At this ratio the win rate required to break even is unrealistic."
         )
+
+    # The same floor, applied to the number the trader actually receives.
+    #
+    # Curriculum §10.3 ranks cost modelling first and §8.2 names cost blindness
+    # a backtest sin; the floor was previously checked against the gross ratio
+    # only, which is the live-trading form of the same mistake. It bites hardest
+    # exactly where this engine now scans most — a 15m crypto round trip can eat
+    # half the risk unit, turning a "1.60:1" into roughly 1.07:1.
+    if costs and costs.get("available"):
+        net = float(costs.get("netRR", 0.0))
+        if net < settings.min_risk_reward:
+            return (
+                f"Reward-to-risk is {trade.risk_reward:.2f} gross but only {net:.2f} after "
+                f"costs ({costs.get('roundTripBps', 0):.0f} bps round trip = "
+                f"{float(costs.get('costAsR', 0)) * 100:.0f}% of the risk on this setup), "
+                f"below the {settings.min_risk_reward} minimum. The edge is real but the "
+                "spread and fees consume it."
+            )
 
     if regime["regime"] == "EXTREME" and forecast.confidence < 60:
         return (
@@ -303,6 +415,7 @@ def build(
         atr_value=atr_value,
         trend_strength=trend.get("strength", 0.0),
         setup=setup,
+        cost_bps=costs.round_trip_bps(symbol, asset_class, timeframe),
     )
 
     # A direct trend-vs-structure contradiction is disqualifying on its own.
@@ -314,7 +427,19 @@ def build(
         and np.sign(trend_f.score) != np.sign(struct_f.score)
     )
 
-    reason = rejection_reason(df, forecast, trade, regime, conflict)
+    # Costs are computed before the gate, because the gate now depends on them.
+    trade_costs: dict[str, Any] | None = None
+    if trade is not None:
+        trade_costs = costs.apply(
+            entry=trade.entry,
+            stop_loss=trade.stop_loss,
+            targets=trade.targets,
+            symbol=symbol,
+            asset_class=asset_class,
+            timeframe=timeframe,
+        )
+
+    reason = rejection_reason(df, forecast, trade, regime, conflict, trade_costs)
 
     base: dict[str, Any] = {
         "symbol": symbol,
@@ -332,6 +457,7 @@ def build(
     if reason is not None or trade is None:
         return {
             **base,
+            "costs": trade_costs,
             "action": "WAIT",
             "entry": None,
             "entryZone": None,
@@ -348,16 +474,27 @@ def build(
     action = "BUY" if forecast.bias == "BULLISH" else "SELL"
     grade = risk_level(trade.risk_percent, regime["regime"], forecast.confidence)
 
+    # Net, not gross. The trader is told what reaches them, with the deduction
+    # named — §10.2 requires "EV after costs" on every published signal.
+    net_rr = float(trade_costs.get("netRR", trade.risk_reward)) if trade_costs else trade.risk_reward
+
     explanation = (
         f"{action} {symbol} on the {timeframe} timeframe at {trade.entry}, "
         f"stop {trade.stop_loss} ({trade.risk_percent:.2f}% away, {trade.method}). "
-        f"First target {trade.targets[0]['price']} gives {trade.risk_reward:.2f}:1. "
+        f"First target {trade.targets[0]['price']} gives {trade.risk_reward:.2f}:1 "
+        f"({net_rr:.2f}:1 after costs). "
         f"Confidence {forecast.confidence:.0f}/100 with {len(forecast.factors)} factor groups contributing. "
         f"{forecast.invalidation['note']}"
     )
 
+    if trade.obstruction:
+        explanation = f"{explanation} Note: {trade.obstruction}"
+        base["reasons"] = [*base["reasons"], f"⚠ {trade.obstruction}"]
+
     return {
         **base,
+        "costs": trade_costs,
+        "netRiskRewardRatio": net_rr,
         "action": action,
         "entry": trade.entry,
         "entryZone": {"low": trade.entry_zone[0], "high": trade.entry_zone[1]},

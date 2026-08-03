@@ -5,6 +5,7 @@ import {
   type InstrumentRef,
   type MarketDataProvider,
   type ProviderCandle,
+  type ProviderDerivatives,
   type ProviderOrderBook,
   type ProviderQuote,
   type Timeframe,
@@ -189,6 +190,76 @@ export class BinanceProvider implements MarketDataProvider {
   }
 
   /**
+   * Perpetual-futures funding, open interest and positioning.
+   *
+   * Four public futures endpoints, no key. Each is fetched with `allSettled`
+   * and every field is nullable: this is supplementary context, and a partial
+   * answer is worth more than none. A pair with no listed perpetual simply
+   * returns nulls rather than failing the analysis.
+   *
+   * These live on `fapi.binance.com`, a different host from the spot base URL.
+   */
+  async getDerivatives(instrument: InstrumentRef): Promise<ProviderDerivatives | null> {
+    if (!this.supports(instrument)) return null;
+    const pair = this.pair(instrument);
+    const futures = 'https://fapi.binance.com';
+    const opts = { timeoutMs: 8000 };
+
+    const [premium, oi, global, top] = await Promise.allSettled([
+      fetchJson<BinancePremiumIndex>(`${futures}/fapi/v1/premiumIndex?symbol=${pair}`, opts),
+      fetchJson<BinanceOpenInterestHist[]>(
+        `${futures}/futures/data/openInterestHist?symbol=${pair}&period=1h&limit=24`,
+        opts,
+      ),
+      fetchJson<BinanceLongShort[]>(
+        `${futures}/futures/data/globalLongShortAccountRatio?symbol=${pair}&period=1h&limit=1`,
+        opts,
+      ),
+      fetchJson<BinanceLongShort[]>(
+        `${futures}/futures/data/topLongShortPositionRatio?symbol=${pair}&period=1h&limit=1`,
+        opts,
+      ),
+    ]);
+
+    const value = <T>(r: PromiseSettledResult<T>): T | null =>
+      r.status === 'fulfilled' ? r.value : null;
+    const num = (v: unknown): number | null => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const fundingRate = num(value(premium)?.lastFundingRate);
+    const series = value(oi) ?? [];
+    const first = num(series[0]?.sumOpenInterestValue);
+    const last = num(series[series.length - 1]?.sumOpenInterestValue);
+
+    const result: ProviderDerivatives = {
+      symbol: instrument.symbol,
+      fundingRate,
+      // Binance funds every 8 hours, so three settlements a day.
+      fundingRateAnnualisedPercent:
+        fundingRate === null ? null : fundingRate * 3 * 365 * 100,
+      openInterest: last,
+      openInterestChangePercent:
+        first !== null && last !== null && first > 0 ? ((last - first) / first) * 100 : null,
+      longAccountRatio: num(value(global)?.[0]?.longAccount),
+      topTraderLongRatio: num(value(top)?.[0]?.longAccount),
+      fetchedAt: new Date().toISOString(),
+      source: this.name,
+    };
+
+    // Nothing came back — report absence rather than a row of nulls the engine
+    // would have to re-check field by field.
+    const anything =
+      result.fundingRate !== null ||
+      result.openInterest !== null ||
+      result.longAccountRatio !== null ||
+      result.topTraderLongRatio !== null;
+
+    return anything ? result : null;
+  }
+
+  /**
    * Batch quotes in one request.
    *
    * `/ticker/24hr` without a symbol returns every pair on the venue — a large
@@ -247,6 +318,28 @@ interface BinanceDepth {
   lastUpdateId: number;
   bids: [string, string][];
   asks: [string, string][];
+}
+
+interface BinancePremiumIndex {
+  symbol: string;
+  markPrice: string;
+  lastFundingRate: string;
+  nextFundingTime: number;
+}
+
+interface BinanceOpenInterestHist {
+  symbol: string;
+  sumOpenInterest: string;
+  sumOpenInterestValue: string;
+  timestamp: number;
+}
+
+interface BinanceLongShort {
+  symbol: string;
+  longAccount: string;
+  shortAccount: string;
+  longShortRatio: string;
+  timestamp: number;
 }
 
 interface BinanceTicker {

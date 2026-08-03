@@ -85,6 +85,38 @@ export interface ProviderOrderBook {
   source: string;
 }
 
+/**
+ * Derivatives and positioning data for a crypto instrument.
+ *
+ * Perpetual futures are where most crypto leverage sits, so funding, open
+ * interest and the long/short split say things spot candles cannot: what
+ * positioning costs to hold, whether leverage is building or unwinding, and how
+ * one-sided the book's participants are. Crowding is the signal — a market that
+ * is heavily long and paying to stay long is fragile in a way price alone does
+ * not show.
+ *
+ * This is *exchange* data, not chain data. Active addresses, exchange netflows
+ * and whale transfers need a licensed on-chain provider and are not modelled
+ * here; nothing in this type should be presented as an on-chain metric.
+ */
+export interface ProviderDerivatives {
+  symbol: string;
+  /** Last funding rate as a fraction (0.0001 = 0.01% per interval). */
+  fundingRate: number | null;
+  /** Annualised equivalent, for a number a human can reason about. */
+  fundingRateAnnualisedPercent: number | null;
+  /** Notional open interest, most recent observation. */
+  openInterest: number | null;
+  /** Percent change in open interest across the observed window. */
+  openInterestChangePercent: number | null;
+  /** All accounts: fraction positioned long, 0…1. */
+  longAccountRatio: number | null;
+  /** Largest accounts by position — the closest thing to an institutional read. */
+  topTraderLongRatio: number | null;
+  fetchedAt: string;
+  source: string;
+}
+
 export interface InstrumentRef {
   symbol: string;
   assetClass: AssetClass;
@@ -118,6 +150,7 @@ export interface MarketDataProvider {
    * single most consequential piece of data on the screen.
    */
   getOrderBook?(instrument: InstrumentRef, depth?: number): Promise<ProviderOrderBook | null>;
+  getDerivatives?(instrument: InstrumentRef): Promise<ProviderDerivatives | null>;
 }
 
 /** Shared HTTP helper with a timeout and a browser-like User-Agent. */

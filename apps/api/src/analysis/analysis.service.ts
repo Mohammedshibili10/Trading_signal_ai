@@ -8,6 +8,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeGateway } from '../realtime/realtime.module';
 import { AiClientService } from './ai-client.service';
 import { assessReissue, type ReissueSuppressed } from './signal-reissue';
+import { readCalibration, writeCalibration } from './calibration-cache';
 import { PrecedentService } from './precedent.service';
 
 /**
@@ -105,7 +106,7 @@ export class AnalysisService {
       // Higher-timeframe bias. Fetched in parallel and omitted on failure —
       // the engine simply skips that adjustment rather than guessing.
       const higherTf = HIGHER_TIMEFRAME[timeframe];
-      const [higherCandles, news, fundamentals, orderBook] = await Promise.all([
+      const [higherCandles, news, fundamentals, orderBook, derivatives] = await Promise.all([
         higherTf
           ? this.marketData
               .getCandles(instrument.symbol, higherTf, 200)
@@ -119,9 +120,20 @@ export class AnalysisService {
         instrument.assetClass === 'CRYPTO'
           ? this.marketData.getOrderBook(instrument.symbol).catch(() => null)
           : Promise.resolve(null),
+        // Funding, open interest and positioning — crypto only, best-effort.
+        instrument.assetClass === 'CRYPTO'
+          ? this.marketData.getDerivatives(instrument.symbol).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
-      return this.ai.post('/analysis', {
+      // Calibration is ~99% of a calibrated analysis and only changes when a
+      // new bar closes, so it is cached against that bar rather than recomputed
+      // whenever this outer entry expires for news or weights.
+      const cachedCalibration = withCalibration
+        ? await readCalibration(this.redis, instrument.symbol, timeframe, candles)
+        : null;
+
+      const result = await this.ai.post('/analysis', {
         symbol: instrument.symbol,
         name: instrument.name,
         assetClass: instrument.assetClass,
@@ -131,9 +143,17 @@ export class AnalysisService {
         news,
         fundamentals,
         orderBook,
+        derivatives,
         riskPerTradePercent: riskPerTrade,
         withCalibration,
+        calibration: cachedCalibration,
       });
+
+      if (withCalibration && !cachedCalibration) {
+        await writeCalibration(this.redis, instrument.symbol, timeframe, candles, result);
+      }
+
+      return result;
     });
   }
 
@@ -428,6 +448,7 @@ export class AnalysisService {
         name: instrument.name,
         action: signal.action as 'BUY' | 'SELL',
         timeframe,
+        horizon: (signal.horizon as string) ?? null,
         entry: Number(signal.entry),
         stopLoss: Number(signal.stopLoss),
         targets: targets.map((t) => t.price),
@@ -436,7 +457,11 @@ export class AnalysisService {
         reason:
           (signal.explanation as string) ||
           ((signal.reasons as string[]) ?? []).slice(0, 2).join(' '),
+        reasons: (signal.reasons as string[]) ?? [],
         confluence: '',
+        assetClass: instrument.assetClass,
+        entryZone: (signal.entryZone as { low: number; high: number } | null) ?? null,
+        riskPercent: Number(signal.riskPercent ?? 0),
         createdAt: stored.createdAt,
       });
     } catch (error) {

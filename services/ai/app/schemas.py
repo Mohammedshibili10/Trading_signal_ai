@@ -64,6 +64,27 @@ class OrderBookInput(BaseModel):
     source: str = ""
 
 
+class DerivativesInput(BaseModel):
+    """
+    Perpetual-futures funding, open interest and positioning.
+
+    Every field is optional. Binance serves these from four separate endpoints
+    and a pair without a listed perpetual has none of them, so the engine treats
+    each independently rather than requiring the whole set.
+    """
+
+    fundingRate: float | None = None
+    fundingRateAnnualisedPercent: float | None = None
+    openInterest: float | None = None
+    openInterestChangePercent: float | None = None
+    #: Fraction of all accounts positioned long, 0…1.
+    longAccountRatio: float | None = None
+    #: Same, for the largest accounts by position size.
+    topTraderLongRatio: float | None = None
+    fetchedAt: str | None = None
+    source: str = ""
+
+
 class NewsInput(BaseModel):
     headline: str
     summary: str = ""
@@ -85,10 +106,18 @@ class AnalysisRequest(BaseModel):
     #: Live depth, when the venue has one. Feeds the liquidity read with
     #: measured resting size instead of size inferred from swing structure.
     orderBook: OrderBookInput | None = None
+    #: Perpetual funding, open interest and positioning. Crypto only; absent for
+    #: every other class, where the group is dropped rather than scored neutral.
+    derivatives: DerivativesInput | None = None
     riskPerTradePercent: float = Field(default=1.0, ge=0.1, le=5.0)
     #: Calibration re-runs the pipeline over history — expensive. The API caches
     #: results and refreshes them on a nightly job rather than per request.
     withCalibration: bool = True
+    #: A calibration report this caller measured earlier for the same symbol,
+    #: timeframe and closed bar. Supplying it skips the walk-forward pass, which
+    #: is ~99% of a calibrated analysis. Must carry the `correction` points, or
+    #: the probabilities would be reported as calibrated while going out raw.
+    calibration: dict[str, Any] | None = None
     #: Validated factor weights from the review loop. Absent means the engine's
     #: own defaults, which is the correct behaviour until a proposal validates.
     factorWeights: dict[str, float] | None = None

@@ -76,7 +76,46 @@ class CalibrationReport:
             "brierScore": round(self.brier_score, 4),
             "buckets": [b.to_dict() for b in self.buckets],
             "window": self.window,
+            # The fitted correction travels with the report.
+            #
+            # Without it a serialised report is display-only: `build_calibrator`
+            # has nothing to fit against, so a caller that stored yesterday's
+            # report and handed it back would get the numbers *described* as
+            # calibrated while the probabilities went out uncorrected. That is
+            # the one failure this module exists to prevent, so the correction
+            # is part of the wire format, not an internal detail.
+            "correction": [[round(x, 6), round(y, 6)] for x, y in self.correction],
         }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "CalibrationReport":
+        """
+        Rebuild a report that was measured earlier and cached.
+
+        The walk-forward pass costs seconds because it re-runs the real pipeline
+        over history; but its answer only changes when a new bar closes. Callers
+        that key their cache on the last closed bar can measure once and replay
+        here, which is what makes a calibrated analysis affordable per request.
+        """
+        return cls(
+            samples=int(raw.get("samples", 0)),
+            hit_rate=float(raw.get("hitRate", 0.0)),
+            high_confidence_hit_rate=float(raw.get("highConfidenceHitRate", 0.0)),
+            high_confidence_samples=int(raw.get("highConfidenceSamples", 0)),
+            calibration_error=float(raw.get("calibrationError", 0.0)),
+            brier_score=float(raw.get("brierScore", 0.0)),
+            buckets=[
+                Bucket(
+                    label=str(b.get("label", "")),
+                    predicted=float(b.get("predicted", 0.0)),
+                    actual=float(b.get("actual", 0.0)),
+                    samples=int(b.get("samples", 0)),
+                )
+                for b in raw.get("buckets", []) or []
+            ],
+            window=str(raw.get("window", "")),
+            correction=[(float(p[0]), float(p[1])) for p in raw.get("correction", []) or []],
+        )
 
 
 class Calibrator:

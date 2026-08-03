@@ -19,6 +19,36 @@ import { TelegramController, TelegramService } from './telegram.controller';
  */
 const DISPLAY_TZ = process.env.DISPLAY_TIMEZONE || 'Asia/Kolkata';
 
+/**
+ * How each trade horizon is named in a message.
+ *
+ * Mirrors `HORIZONS` in the web client. Kept as a small literal rather than
+ * imported across the workspace boundary — the API and the web app are built
+ * and deployed separately, and a shared constant would couple them for four
+ * strings.
+ */
+const HORIZON_LABEL: Record<string, { label: string; holding: string }> = {
+  INTRADAY: { label: 'Intraday', holding: 'same session' },
+  SWING: { label: 'Swing', holding: 'days to ~2 weeks' },
+  POSITIONAL: { label: 'Positional', holding: 'weeks to months' },
+  LONG_TERM: { label: 'Long term', holding: 'months or longer' },
+};
+
+/**
+ * Escape the four characters Telegram's HTML parser treats as markup.
+ *
+ * Applied to the whole message body, with the `<b>` wrapper added afterwards,
+ * so no amount of engine prose can produce an unparseable message. A trade
+ * alert must never be lost to a stray angle bracket in a factor label.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function localTime(date: Date): string {
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: DISPLAY_TZ,
@@ -37,6 +67,8 @@ export interface SignalNotification {
   name: string;
   action: 'BUY' | 'SELL';
   timeframe: string;
+  /** Trade horizon — INTRADAY | SWING | POSITIONAL | LONG_TERM. */
+  horizon?: string | null;
   entry: number;
   stopLoss: number;
   targets: number[];
@@ -45,6 +77,16 @@ export interface SignalNotification {
   reason: string;
   confluence: string;
   createdAt: Date;
+  /** CRYPTO | FOREX | EQUITY | INVESTMENT, for the message header. */
+  assetClass?: string | null;
+  /** The ranked factor evidence — the engine's own reasoning, in order. */
+  reasons?: string[];
+  /** What the timeframes above the entry said, and why the entry was allowed. */
+  higherTimeframe?: string;
+  /** The band a limit order should sit in, when the engine defined one. */
+  entryZone?: { low: number; high: number } | null;
+  /** Stop distance as a percentage of entry. */
+  riskPercent?: number;
 }
 
 /**
@@ -109,6 +151,16 @@ export class NotificationsService {
   }
 
   /**
+   * The chat, group or channel that receives every signal.
+   *
+   * Empty when unconfigured, in which case delivery falls back to per-user
+   * linked chats only — which is the state that made this look broken.
+   */
+  private get telegramChannel(): string {
+    return this.config.get<string>('notifications.telegramChatId') ?? '';
+  }
+
+  /**
    * Everyone who should hear about a signal on this symbol.
    *
    * Two routes in, and the second is the one that matters for an autonomous
@@ -168,22 +220,74 @@ export class NotificationsService {
     });
   }
 
+  /**
+   * Price with a sensible number of decimals for the instrument's scale.
+   *
+   * `toFixed(2)` is wrong for most of what this platform trades: EURUSD at
+   * 1.1547 renders as "1.15", which is not a price anyone can act on — it
+   * rounds away four times the typical daily range of the pair. The scale has
+   * to come from the number itself.
+   */
+  private price(value: number): string {
+    const magnitude = Math.abs(value);
+    if (!Number.isFinite(value)) return '—';
+    if (magnitude >= 1000) return value.toFixed(2);
+    if (magnitude >= 10) return value.toFixed(2);
+    if (magnitude >= 1) return value.toFixed(4);
+    return value.toFixed(6);
+  }
+
   /** Format a signal the way a trader would want to read it on a phone. */
   private format(signal: SignalNotification): { title: string; body: string } {
     const targets = signal.targets.length
-      ? signal.targets.map((t, i) => `TP${i + 1} ${t.toFixed(2)}`).join(' · ')
+      ? signal.targets.map((t, i) => `TP${i + 1} ${this.price(t)}`).join(' · ')
       : 'no targets';
 
+    // What kind of trade this is, stated before the numbers. A push notification
+    // is read away from the screen and acted on from memory: "SELL BTC on 1h"
+    // does not say whether to close it before the session ends or hold it for a
+    // fortnight, and that decides both the position size and the stop.
+    const horizon = HORIZON_LABEL[String(signal.horizon ?? '').toUpperCase()];
+
+    const entry = signal.entryZone
+      ? `Entry ${this.price(signal.entry)} (zone ${this.price(signal.entryZone.low)}–${this.price(signal.entryZone.high)})`
+      : `Entry ${this.price(signal.entry)}`;
+
+    const stop = signal.riskPercent
+      ? `SL ${this.price(signal.stopLoss)} (${signal.riskPercent.toFixed(2)}% risk)`
+      : `SL ${this.price(signal.stopLoss)}`;
+
+    // The engine's ranked evidence, not just the one-line explanation. This is
+    // the part a trader uses to decide whether they agree, and it was the one
+    // part the message left out.
+    const reasoning = (signal.reasons ?? [])
+      .slice(0, 6)
+      .map((line) => `• ${line}`)
+      .join('\n');
+
     return {
-      title: `${signal.action} ${signal.symbol} · ${signal.timeframe} · ${signal.confidence.toFixed(0)}/100`,
+      title:
+        `${signal.action} ${signal.symbol} · ` +
+        `${horizon ? `${horizon.label} · ` : ''}${signal.timeframe} · ` +
+        `${signal.confidence.toFixed(0)}/100`,
       body: [
-        `${signal.action} ${signal.symbol} (${signal.name}) on ${signal.timeframe}`,
-        `Entry ${signal.entry.toFixed(2)} · SL ${signal.stopLoss.toFixed(2)} · ${targets}`,
+        `${signal.action} ${signal.symbol} (${signal.name})` +
+          `${signal.assetClass ? ` · ${signal.assetClass}` : ''} on ${signal.timeframe}`,
+        horizon ? `${horizon.label} trade · typical hold ${horizon.holding}` : '',
+        '',
+        entry,
+        stop,
+        targets,
         `R:R ${signal.riskRewardRatio.toFixed(2)}:1 · confidence ${signal.confidence.toFixed(0)}/100`,
         '',
         signal.reason,
+        reasoning ? `\nWhy:\n${reasoning}` : '',
+        signal.higherTimeframe ? `\nHigher timeframes: ${signal.higherTimeframe}` : '',
         signal.confluence ? `\nConfluence: ${signal.confluence}` : '',
-        `\n${signal.createdAt.toISOString()}`,
+        // Local time, not UTC. An IST reader given a UTC stamp sees an alert
+        // dated five and a half hours ago and reads it as stale — the worst
+        // possible failure for a time-sensitive message.
+        `\nIssued ${localTime(signal.createdAt)}`,
         '\nNot investment advice. Probabilities are historical frequencies, not promises.',
       ]
         .filter(Boolean)
@@ -192,17 +296,34 @@ export class NotificationsService {
   }
 
   async signalIssued(signal: SignalNotification): Promise<{ delivered: number }> {
+    const { title, body } = this.format(signal);
+    const telegramText = `<b>${escapeHtml(title)}</b>\n\n${escapeHtml(body)}`;
+
+    // ── Telegram first, and independent of the in-app audience ──
+    //
+    // The channel receives every issued signal, whether or not a single user
+    // has linked a chat and whether or not anybody follows the symbol. This is
+    // the delivery that was missing: `audienceFor` returning empty used to
+    // return early, so a signal on an instrument nobody had watchlisted was
+    // stored, broadcast to sockets, and sent to Telegram never — which is
+    // indistinguishable from Telegram being broken, and was reported as such.
+    //
+    // Nothing here is awaited: a slow or failing Telegram call must not delay
+    // the next recipient, or the database write below.
+    const channel = this.telegramChannel;
+    if (channel) void this.telegram(channel, telegramText, `signal ${signal.symbol}`);
+
     const audience = await this.audienceFor(signal.symbol, signal.confidence);
+
     if (audience.length === 0) {
-      this.logger.debug(
-        `no audience for ${signal.symbol} at confidence ${signal.confidence} — nobody follows it ` +
-          `and it is below the ${BROADCAST_CONFIDENCE} broadcast bar`,
+      this.logger.log(
+        `${signal.action} ${signal.symbol} — no in-app audience at confidence ` +
+          `${signal.confidence.toFixed(0)} (nobody follows it and it is below the ` +
+          `${BROADCAST_CONFIDENCE} broadcast bar)` +
+          `${channel ? '; sent to the Telegram channel' : ''}`,
       );
       return { delivered: 0 };
     }
-
-    const { title, body } = this.format(signal);
-    const telegramText = `*${title}*\n\n${body}`;
 
     // ── Push first, persist second ──────────────────────────────
     //
@@ -212,13 +333,14 @@ export class NotificationsService {
     // that user's INSERT and the inserts ran one at a time, so against a
     // remote database every recipient added a full round-trip — the last
     // person on a long list could be many seconds behind the first.
-    //
-    // Nothing here is awaited: a slow or failing Telegram call must not delay
-    // the next recipient.
     for (const user of audience) {
       if (user.preferences?.signalAlerts === false) continue;
       const chatId = user.preferences?.telegramChatId;
-      if (chatId) void this.telegram(chatId, telegramText);
+      // Skip a personal chat that is also the channel, or the same message
+      // arrives twice.
+      if (chatId && chatId !== channel) {
+        void this.telegram(chatId, telegramText, `signal ${signal.symbol}`);
+      }
     }
 
     // The in-app record is always written, even for users with alerts off: it
@@ -268,9 +390,6 @@ export class NotificationsService {
 
   /** Outcome updates. Shorter, because they interrupt for less. */
   async signalResolved(resolution: ResolutionNotification): Promise<void> {
-    const audience = await this.audienceFor(resolution.symbol);
-    if (audience.length === 0) return;
-
     const label =
       resolution.outcome === 'STOPPED'
         ? 'stopped out'
@@ -279,7 +398,22 @@ export class NotificationsService {
           : `reached ${resolution.outcome.replace('HIT_T', 'target ')}`;
 
     const title = `${resolution.symbol} ${label}`;
-    const body = `The ${resolution.symbol} signal ${label} at ${resolution.price.toFixed(2)}.`;
+    const body = `The ${resolution.symbol} signal ${label} at ${this.price(resolution.price)}.`;
+
+    // The channel that was told about the entry is told about the exit. A feed
+    // of entries with no outcomes is the least trustworthy thing a signal
+    // service can publish.
+    const channel = this.telegramChannel;
+    if (channel) {
+      void this.telegram(
+        channel,
+        `<b>${escapeHtml(title)}</b>\n${escapeHtml(body)}`,
+        `resolution ${resolution.symbol}`,
+      );
+    }
+
+    const audience = await this.audienceFor(resolution.symbol);
+    if (audience.length === 0) return;
 
     for (const user of audience) {
       const prefs = user.preferences;
@@ -299,7 +433,13 @@ export class NotificationsService {
       this.realtime.notifyUser(user.id, notification);
 
       const chatId = user.preferences?.telegramChatId;
-      if (chatId) void this.telegram(chatId, `*${title}*\n${body}`);
+      if (chatId && chatId !== channel) {
+        void this.telegram(
+          chatId,
+          `<b>${escapeHtml(title)}</b>\n${escapeHtml(body)}`,
+          `resolution ${resolution.symbol}`,
+        );
+      }
     }
   }
 
@@ -313,8 +453,6 @@ export class NotificationsService {
    */
   async signalHealthChanged(update: HealthNotification): Promise<{ delivered: number }> {
     const critical = update.severity === 'CRITICAL';
-    const audience = await this.audienceFor(update.symbol, critical ? 100 : undefined);
-    if (audience.length === 0) return { delivered: 0 };
 
     const title = critical
       ? `⚠️ CLOSE ${update.action} ${update.symbol} — setup no longer valid`
@@ -363,6 +501,21 @@ export class NotificationsService {
     lines.push('', 'Not investment advice.');
     const body = lines.join('\n');
 
+    // A "close this position" message is the most consequential thing the
+    // platform sends, so it goes to the channel that carried the entry — not
+    // only to whoever happens to follow the symbol.
+    const channel = this.telegramChannel;
+    if (channel) {
+      void this.telegram(
+        channel,
+        `<b>${escapeHtml(title)}</b>\n\n${escapeHtml(body)}`,
+        `health ${update.symbol}`,
+      );
+    }
+
+    const audience = await this.audienceFor(update.symbol, critical ? 100 : undefined);
+    if (audience.length === 0) return { delivered: 0 };
+
     let delivered = 0;
 
     for (const user of audience) {
@@ -397,7 +550,13 @@ export class NotificationsService {
       }
 
       const chatId = prefs?.telegramChatId;
-      if (chatId) void this.telegram(chatId, `*${title}*\n\n${body}`);
+      if (chatId && chatId !== channel) {
+        void this.telegram(
+          chatId,
+          `<b>${escapeHtml(title)}</b>\n\n${escapeHtml(body)}`,
+          `health ${update.symbol}`,
+        );
+      }
     }
 
     this.logger.log(
@@ -413,10 +572,31 @@ export class NotificationsService {
    * business verification, no template approval, no per-message billing. A
    * WhatsApp channel would implement this same interface; the difference is
    * entirely in the onboarding, not the code.
+   *
+   * **HTML rather than Markdown.** Legacy Markdown has no escape mechanism
+   * worth the name, and every message this sends is built from engine prose:
+   * factor labels carry `*`, instrument symbols carry `_` (`MF_HDFC_MIDCAP`),
+   * and levels carry `(` and `)`. One unbalanced character makes Telegram
+   * reject the whole message with `400 Can't parse entities`, which drops a
+   * live trade alert on the floor for a formatting reason. HTML has exactly
+   * four characters to escape and `escapeHtml` handles all of them.
+   *
+   * **Failures are logged at warn, with Telegram's own description.** They were
+   * logged at debug, which is below the default level — so a bad token, a bot
+   * that had never been added to the channel, or a chat that had blocked the
+   * bot all failed completely silently. "Telegram is not sending" with nothing
+   * in the log is the hardest possible version of this bug to diagnose, and it
+   * was self-inflicted.
    */
-  private async telegram(chatId: string, text: string): Promise<void> {
+  private async telegram(chatId: string, text: string, context = 'message'): Promise<void> {
     const token = this.telegramToken;
-    if (!token) return;
+    if (!token) {
+      this.logger.warn(
+        `TELEGRAM_BOT_TOKEN is not set — ${context} not delivered. ` +
+          'Create a bot with @BotFather and put the token in .env.',
+      );
+      return;
+    }
 
     try {
       const controller = new AbortController();
@@ -428,18 +608,24 @@ export class NotificationsService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text,
-          parse_mode: 'Markdown',
+          text: text.slice(0, 4096),
+          parse_mode: 'HTML',
           disable_web_page_preview: true,
         }),
       });
       clearTimeout(timer);
 
       if (!response.ok) {
-        this.logger.debug(`telegram ${response.status}: ${(await response.text()).slice(0, 120)}`);
+        const detail = await response.text().catch(() => '');
+        this.logger.warn(
+          `telegram ${context} to ${chatId} failed (${response.status}): ${detail.slice(0, 200)}`,
+        );
+        return;
       }
+
+      this.logger.debug(`telegram ${context} delivered to ${chatId}`);
     } catch (error) {
-      this.logger.debug(`telegram failed: ${(error as Error).message}`);
+      this.logger.warn(`telegram ${context} to ${chatId} failed: ${(error as Error).message}`);
     }
   }
 }

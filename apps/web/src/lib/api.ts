@@ -179,8 +179,19 @@ export const endpoints = {
       api.get(`/analysis/${symbol}/candles`, { params: { timeframe, lookback } }),
     batch: (symbols: string[], timeframe: string, minConfidence = 0) =>
       api.post('/analysis/signals/batch', { symbols, timeframe, minConfidence }),
-    recentSignals: (limit = 20, assetClass?: string) =>
-      api.get('/analysis/signals/recent', { params: { limit, assetClass } }),
+    recentSignals: (
+      limit = 20,
+      assetClass?: string,
+      options: { status?: 'live'; minConfidence?: number } = {},
+    ) =>
+      api.get('/analysis/signals/recent', {
+        params: {
+          limit,
+          assetClass,
+          status: options.status,
+          minConfidence: options.minConfidence,
+        },
+      }),
     engineConfig: () => api.get('/analysis/engine/config'),
   },
 

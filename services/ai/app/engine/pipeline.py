@@ -22,8 +22,10 @@ from ..config import settings
 from . import (
     calibration,
     candlesticks,
+    derivatives as derivatives_engine,
     elliott,
     factors,
+    ict as ict_engine,
     forecast,
     harmonics,
     orderbook as orderbook_engine,
@@ -32,6 +34,7 @@ from . import (
     price_action,
     signals,
     smc,
+    volume_profile,
 )
 from .anatomy import analyse_candle, analyse_series, describe
 from .indicators import compute_all, last_valid
@@ -211,6 +214,9 @@ def analyse(
     fundamentals: dict[str, Any] | None = None,
     risk_per_trade: float = 1.0,
     with_calibration: bool = True,
+    #: A calibration report measured earlier for this exact symbol, timeframe and
+    #: closed bar. Replaces the walk-forward pass rather than supplementing it.
+    precomputed_calibration: dict[str, Any] | None = None,
     #: Validated weights from the review loop. None uses the engine defaults.
     factor_weights: dict[str, float] | None = None,
     #: Raw candle dicts, so the taker-side fields survive the DataFrame
@@ -218,6 +224,8 @@ def analyse(
     raw_candles: list[dict[str, Any]] | None = None,
     #: Live depth snapshot, when the venue publishes one.
     order_book: dict[str, Any] | None = None,
+    #: Perpetual funding, open interest and positioning. Crypto only.
+    derivatives: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Full analysis. The single function every API route ultimately calls.
@@ -236,7 +244,14 @@ def analyse(
     swings = find_swings(df, swing_window)
     adx_v = last_valid(ind.get("adx"))
     trend = classify_trend(swings, adx_v)
-    levels = find_levels(df, swings, atr_value=atr_value)
+
+    # Volume per price, before levels — §1.5 lists volume-profile HVNs as one of
+    # the four origins a support/resistance zone should be built from, and a
+    # swing that coincides with a high-volume node is a materially better level
+    # than one that does not. Unavailable on spot forex, which reports no true
+    # volume; `find_levels` handles the None.
+    profile = volume_profile.analyse(df, atr_value=atr_value)
+    levels = find_levels(df, swings, atr_value=atr_value, profile=profile)
 
     # ── Higher timeframe bias ────────────────────────────────────
     higher_tf_trend: str | None = None
@@ -278,6 +293,17 @@ def analyse(
         atr_value=atr_value, trend_direction=trend["direction"], timeframe=timeframe,
     )
     smc_result = smc.analyse(df, swings, atr_value=atr_value, timeframe=timeframe)
+
+    # ICT refinements on the same structural read: killzone timing, the OTE
+    # band, and order blocks that failed and flipped. Reuses the blocks SMC
+    # already found so the two cannot disagree about where a level is.
+    ict_result = ict_engine.analyse(
+        df,
+        swings,
+        smc.find_order_blocks(df, atr_value=atr_value),
+        atr_value=atr_value,
+        timeframe=timeframe,
+    )
     chart_patterns = patterns.detect(df, swings, atr_value=atr_value)
     harmonic_patterns = harmonics.detect(df, swings, atr_value=atr_value)
 
@@ -286,6 +312,12 @@ def analyse(
     # factor blend then simply omits them.
     flow = orderflow.analyse(raw_candles or [], atr_value=atr_value)
     book = orderbook_engine.analyse(order_book, price=price)
+
+    # Funding and positioning. Given the structural trend so rising open
+    # interest can be read as conviction behind the existing move — on its own
+    # it has no direction, and guessing one would invent evidence.
+    trend_direction = {"UPTREND": 1.0, "DOWNTREND": -1.0}.get(trend.get("direction", ""), 0.0)
+    derivs = derivatives_engine.analyse(derivatives, trend_score=trend_direction)
     elliott_result = elliott.analyse(df, swings, min_bars=settings.min_bars)
     regime = factors.volatility_regime(ind)
 
@@ -311,6 +343,8 @@ def analyse(
         weights=factor_weights,
         order_flow=flow if flow.get("available") else None,
         order_book=book if book.get("available") else None,
+        derivatives=derivs if derivs.get("available") else None,
+        ict=ict_result if ict_result.get("available") else None,
     )
 
     # ── Calibration ──────────────────────────────────────────────
@@ -318,7 +352,19 @@ def analyse(
     # cached upstream and refreshed by a nightly job rather than per request.
     report = None
     calibrator = None
-    if with_calibration and len(df) >= settings.min_bars + 30:
+    if precomputed_calibration:
+        # Measured on a previous request for this same closed bar. The caller
+        # owns cache invalidation — it keys on the bar timestamp, so a report
+        # can only arrive here while it is still the answer the walk-forward
+        # pass would produce.
+        try:
+            report = calibration.CalibrationReport.from_dict(precomputed_calibration)
+            calibrator = calibration.build_calibrator(report)
+        except Exception:  # noqa: BLE001 — a bad cache entry must not fail the analysis
+            log.warning("could not restore cached calibration for %s %s", symbol, timeframe)
+            report = None
+            calibrator = None
+    if report is None and with_calibration and len(df) >= settings.min_bars + 30:
         try:
             # Cap the number of scoring passes. Adjacent bars produce nearly
             # identical predictions, so beyond ~200 samples the extra passes buy
@@ -438,6 +484,24 @@ def analyse(
         if flow.get("available")
         else flow,
         "orderBook": book,
+        "volumeProfile": {
+            **profile,
+            # Advisory stop anchor, when the setup has a direction to anchor
+            # against. §7.2 — a stop beyond a low-volume node is only reached by
+            # a move that traded through an area the market has been refusing to
+            # trade in, rather than by ordinary rotation.
+            "stopAnchor": volume_profile.stop_anchor(
+                profile,
+                entry=float(signal.get("entry") or price),
+                stop_loss=float(signal.get("stopLoss") or 0.0),
+                long=signal.get("action") == "BUY",
+                atr_value=atr_value,
+            )
+            if signal.get("action") in ("BUY", "SELL") and signal.get("stopLoss")
+            else None,
+        },
+        "derivatives": derivs,
+        "ict": ict_result,
         "chartPatterns": [p.to_dict() for p in chart_patterns],
         "harmonicPatterns": [p.to_dict() for p in harmonic_patterns],
         "elliott": elliott_result,

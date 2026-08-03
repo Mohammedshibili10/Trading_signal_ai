@@ -23,8 +23,45 @@ const NOTIFY_CONFIDENCE = 62;
 /** Minimum reward:risk before a scan will emit anything. */
 const NOTIFY_MIN_RR = 1.8;
 
-/** How many instruments one scan pass covers. Keeps a pass inside its interval. */
-const BATCH_SIZE = 12;
+/**
+ * The bar when the higher timeframes have no view.
+ *
+ * Every entry below is taken with the daily context already read, and the
+ * normal case is that the context *agrees* with the entry — that agreement is
+ * most of what makes a lower-timeframe setup worth acting on. When the higher
+ * timeframes are genuinely directionless the setup has to stand on its own
+ * evidence alone, so it is held to a materially higher confidence instead of
+ * being refused outright. Refusing outright would silence the scanner through
+ * every ranging market, which is precisely when intraday setups are the only
+ * ones on offer.
+ */
+const UNANCHORED_CONFIDENCE = 72;
+
+/**
+ * How many **instruments** one scan pass may cover.
+ *
+ * Counted in instruments rather than in instrument-timeframe pairs, because a
+ * pass is now organised around the instrument: the higher-timeframe context is
+ * read once and then several lower timeframes are searched against it. Forty
+ * pairs and forty instruments were the same thing when crypto and forex were
+ * scanned on two timeframes; at four they are not.
+ *
+ * This is the ceiling, not the target — `SCAN_BUDGET_MS` is what actually ends
+ * a pass, because the honest cost of a batch is not knowable in advance.
+ */
+const BATCH_SIZE = 16;
+
+/**
+ * Wall-clock budget for one pass.
+ *
+ * The scan runs every five minutes and must finish inside that, or the overlap
+ * guard starts skipping ticks and coverage silently gets worse the more
+ * instruments are added. A fixed count cannot express this: forty warm scans
+ * take seconds, forty cold ones would take ten minutes. Stopping on elapsed
+ * time instead means a cold pass covers fewer instruments and hands the rest to
+ * the next pass, while a warm pass gets through the whole batch.
+ */
+const SCAN_BUDGET_MS = 210_000;
 
 /** A repeat signal on the same symbol+timeframe is suppressed for this long. */
 const DEDUPE_WINDOW_MS = 6 * 60 * 60 * 1000;
@@ -38,6 +75,31 @@ interface ScanTarget {
   exchange: string | null;
   timeframe: Timeframe;
   tier: AssetTier;
+}
+
+/** One instrument, with every timeframe it is to be searched on. */
+interface ScanSubject {
+  symbol: string;
+  assetClass: string;
+  exchange: string | null;
+  tier: AssetTier;
+  timeframes: Timeframe[];
+}
+
+/**
+ * What the timeframes above the entry are saying, read once per instrument.
+ *
+ * This is the "higher timeframes first" half of the pass. It is deliberately
+ * the cheap read — trend and structure agreement across 1h/4h/1D/1W/1M, with
+ * no calibration and no trade attached — because its job is to decide *whether
+ * and in which direction* to spend the expensive read below it, not to produce
+ * a signal itself.
+ */
+interface HigherTimeframeContext {
+  bias: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  verdict: string;
+  alignment: number;
+  summary: string;
 }
 
 /**
@@ -87,8 +149,8 @@ export class AutoScanService {
    * active alerts — rather than the whole universe. Scanning instruments nobody
    * follows burns provider quota to produce notifications nobody receives.
    */
-  private async targets(): Promise<ScanTarget[]> {
-    const [watched, held, indices] = await Promise.all([
+  private async targets(): Promise<ScanSubject[]> {
+    const [watched, held, universe] = await Promise.all([
       this.prisma.watchlistItem.findMany({
         select: {
           symbol: true,
@@ -105,15 +167,28 @@ export class AutoScanService {
         distinct: ['symbol'],
         take: 150,
       }),
-      // A handful of index instruments so the scanner has something to say even
-      // on a fresh install with no watchlists.
+      // The rest of the tradeable universe.
+      //
+      // This used to be eight index instruments — a fallback so a fresh install
+      // had something to say. Everything else was invisible to the scanner
+      // unless somebody had already watchlisted it, which meant the engine only
+      // ever looked where a user had already looked and could not surface a
+      // setup on an instrument nobody was watching yet. Finding those is the
+      // entire point of an autonomous scan.
+      //
+      // Affordable now because calibration is cached per closed bar: a scan
+      // that cost ~15s per instrument costs ~1s once that bar's report exists,
+      // so the universe is bounded by the rotation budget rather than by how
+      // much work one pass can survive.
       this.prisma.instrument.findMany({
-        where: { isActive: true, kind: 'INDEX' },
+        where: { isActive: true },
         select: { symbol: true, assetClass: true, exchange: true },
-        take: 8,
+        take: 300,
       }),
     ]);
 
+    // Watchlisted and held instruments are inserted first, so they sit at the
+    // head of the rotation and are reached soonest within any given pass.
     const seen = new Map<string, { assetClass: string; exchange: string | null }>();
     for (const row of [...watched, ...held]) {
       if (row.instrument) {
@@ -123,34 +198,158 @@ export class AutoScanService {
         });
       }
     }
-    for (const row of indices) {
+    for (const row of universe) {
+      if (seen.has(row.symbol)) continue;
       seen.set(row.symbol, { assetClass: row.assetClass, exchange: row.exchange ?? null });
     }
 
-    const targets: ScanTarget[] = [];
+    const subjects: ScanSubject[] = [];
     for (const [symbol, meta] of seen) {
-      // Daily for equities and funds; 1h for the 24-hour markets, where a daily
-      // bar is far too slow to be actionable.
-      const timeframe: Timeframe =
-        meta.assetClass === 'CRYPTO' || meta.assetClass === 'FOREX' ? '1h' : '1D';
-      targets.push({
+      subjects.push({
         symbol,
         assetClass: meta.assetClass,
         exchange: meta.exchange,
-        timeframe,
         // Overwritten by `prioritise` before the batch is chosen.
         tier: 3,
+        timeframes: this.scanTimeframes(meta.assetClass),
       });
     }
 
-    return targets;
+    return subjects;
   }
 
   /**
-   * One scan pass.
+   * Which timeframes an instrument is searched on, slowest first.
+   *
+   * Ordered deliberately. The pass walks this list in order, so the daily read
+   * happens before the four-hour and the four-hour before the fifteen-minute —
+   * the context is established on the timeframe that sets it, and every faster
+   * entry is judged against a picture that has already been formed.
+   *
+   * Daily for equities and funds; the 24-hour markets get the full ladder,
+   * because that is where this platform's users actually trade and because a
+   * market with no close has no natural daily reset to wait for.
+   *
+   * The setup timeframe decides the horizon, and the horizon decides which
+   * timeframes vote in the confluence gate: 15m is INTRADAY (voted on by
+   * 1m…1D), 1h and 4h are SWING (15m…1W), 1D is POSITIONAL (1h…1M). So this
+   * one list produces exactly the two trade types the platform leads with —
+   * **intraday** off the 15m and **swing** off the 1h and 4h — with the
+   * positional daily kept as the slowest read and as the anchor the others are
+   * measured against.
+   *
+   * Scanning crypto and forex at 1h and 1D only, as this did, left the intraday
+   * horizon completely unscanned: no 15m setup could ever be issued because no
+   * 15m setup was ever looked for. It also skipped 4h entirely, which measured
+   * as the most productive swing timeframe on this universe.
+   *
+   * Each entry is an independent signal with its own horizon — deduplication is
+   * keyed on symbol *and* timeframe — so BTC can carry a positional long and an
+   * intraday short at once. That is a real thing traders do, and the horizon is
+   * labelled on every signal, so the two are told apart on sight.
+   */
+  private scanTimeframes(assetClass: string): Timeframe[] {
+    return assetClass === 'CRYPTO' || assetClass === 'FOREX'
+      ? ['1D', '4h', '1h', '15m']
+      : ['1D'];
+  }
+
+  /**
+   * Read the timeframes above the trade before looking for one.
+   *
+   * Cheap by design: trend and structure agreement across 1h/4h/1D/1W/1M with
+   * no calibration pass and no trade attached. Its job is to decide whether the
+   * expensive per-timeframe read below is worth running at all, and in which
+   * direction — not to produce a signal.
+   *
+   * Returns null when the instrument cannot be read at all, which is treated as
+   * "skip", not as "no bias": an unreadable instrument is not a directionless
+   * one, and conflating the two would let a data outage look like a ranging
+   * market and quietly lower the bar.
+   */
+  private async higherTimeframeContext(symbol: string): Promise<HigherTimeframeContext | null> {
+    try {
+      const read = (await this.confluence.confluence(symbol, 'POSITIONAL', '1D')) as {
+        bias?: string;
+        verdict?: string;
+        alignmentScore?: number;
+        summary?: string;
+      };
+
+      const bias = read.bias === 'BULLISH' || read.bias === 'BEARISH' ? read.bias : 'NEUTRAL';
+
+      if (read.verdict === 'INSUFFICIENT_DATA') return null;
+
+      return {
+        bias,
+        verdict: read.verdict ?? 'UNKNOWN',
+        alignment: Number(read.alignmentScore ?? 0),
+        summary: read.summary ?? '',
+      };
+    } catch (error) {
+      this.logger.debug(`higher-timeframe read failed for ${symbol}: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Does this setup have the higher timeframes behind it?
+   *
+   * A counter-trend entry is not automatically wrong, but it is not what an
+   * unattended scanner should be pushing to someone's phone. When the daily
+   * context has a direction, only entries with it are issued; when it does not,
+   * the entry has to carry itself on a higher confidence.
+   */
+  private anchored(
+    signal: Record<string, unknown>,
+    context: HigherTimeframeContext,
+  ): { allow: boolean; reason: string } {
+    const wanted = signal.action === 'BUY' ? 'BULLISH' : 'BEARISH';
+
+    if (context.bias === 'NEUTRAL') {
+      const confidence = Number(signal.confidence ?? 0);
+      return confidence >= UNANCHORED_CONFIDENCE
+        ? {
+            allow: true,
+            reason:
+              `Higher timeframes are directionless (${context.verdict}, alignment ` +
+              `${context.alignment.toFixed(0)}/100), so this setup stands on its own evidence ` +
+              `at ${confidence.toFixed(0)}/100.`,
+          }
+        : {
+            allow: false,
+            reason:
+              `no higher-timeframe direction and confidence ${confidence.toFixed(0)} is below ` +
+              `the unanchored bar of ${UNANCHORED_CONFIDENCE}`,
+          };
+    }
+
+    if (context.bias !== wanted) {
+      return {
+        allow: false,
+        reason: `counter-trend — higher timeframes read ${context.bias.toLowerCase()}`,
+      };
+    }
+
+    return {
+      allow: true,
+      reason:
+        `Higher timeframes read ${context.bias.toLowerCase()} at alignment ` +
+        `${context.alignment.toFixed(0)}/100, which is the direction of this entry.`,
+    };
+  }
+
+  /**
+   * One scan pass: higher timeframes first, then entries below them.
+   *
+   * The shape is the method. For each instrument the daily context is read
+   * once — cheap, no calibration, no trade — and only then are the faster
+   * timeframes searched, slowest first, with every candidate entry checked
+   * against that context before it can be issued. An instrument whose higher
+   * timeframes cannot be read at all is skipped rather than searched blind.
    *
    * Sequential rather than parallel: each gated signal fans out into a
-   * ten-timeframe fetch plus a calibration run, and twelve of those at once
+   * ten-timeframe fetch plus a calibration run, and a dozen of those at once
    * would saturate both the provider and the analysis service.
    */
   async scan(): Promise<{ scanned: number; issued: number; skipped: number }> {
@@ -181,7 +380,7 @@ export class AutoScanService {
     const majors = ranked.filter((item) => item.tier === 1).slice(0, alwaysScan);
     const rest = ranked.filter((item) => !majors.includes(item));
 
-    const batch: ScanTarget[] = [...majors];
+    const batch: ScanSubject[] = [...majors];
     for (let i = 0; i < Math.min(rotating, rest.length); i += 1) {
       batch.push(rest[(this.cursor + i) % rest.length]);
     }
@@ -189,59 +388,126 @@ export class AutoScanService {
 
     let issued = 0;
     let skipped = 0;
+    let covered = 0;
+    const startedAt = Date.now();
 
-    for (const target of batch) {
-      try {
-        if (await this.hasOpenSignal(target.symbol, target.timeframe)) {
-          skipped += 1;
-          continue;
-        }
+    for (const subject of batch) {
+      // Stop on elapsed time rather than on count. Whatever is left rides the
+      // cursor into the next pass, so a slow pass costs coverage rather than
+      // colliding with the next tick and losing a whole cycle to the overlap
+      // guard.
+      if (Date.now() - startedAt > SCAN_BUDGET_MS) {
+        const dropped = batch.length - covered;
+        this.logger.log(
+          `scan budget reached after ${covered} of ${batch.length} — ` +
+            `${dropped} deferred to the next pass`,
+        );
+        // Rewind the cursor so the deferred rotating subjects are picked up next
+        // time instead of being skipped over.
+        this.cursor = rest.length > 0 ? (this.cursor - dropped + rest.length * 2) % rest.length : 0;
+        break;
+      }
+      covered += 1;
 
-        const result = (await this.confluence.gatedSignal(target.symbol, target.timeframe, {
-          enforce: true,
-        })) as {
-          signal?: Record<string, unknown>;
-          confluence?: Record<string, unknown>;
+      // ── Higher timeframes, first and once ──────────────────────
+      //
+      // One read per instrument rather than one per candidate entry: the daily
+      // context does not change between the 4h search and the 15m search, and
+      // paying for it four times would be the same answer at four times the
+      // cost.
+      const context = await this.higherTimeframeContext(subject.symbol);
+      if (!context) {
+        this.logger.debug(`${subject.symbol}: higher timeframes unreadable — skipped`);
+        skipped += subject.timeframes.length;
+        continue;
+      }
+
+      // ── Then the entries, slowest first ────────────────────────
+      for (const timeframe of subject.timeframes) {
+        if (Date.now() - startedAt > SCAN_BUDGET_MS) break;
+
+        const target: ScanTarget = {
+          symbol: subject.symbol,
+          assetClass: subject.assetClass,
+          exchange: subject.exchange,
+          tier: subject.tier,
+          timeframe,
         };
 
-        const signal = result.signal;
-        if (!signal || !this.worthNotifying(signal)) {
-          skipped += 1;
-          continue;
-        }
+        try {
+          if (await this.hasOpenSignal(target.symbol, timeframe)) {
+            skipped += 1;
+            continue;
+          }
 
-        // The reissue decision proper, now that there is an action and a price
-        // to judge. Shared with the manual scan so the two cannot disagree
-        // about what counts as a genuinely new setup.
-        const verdict = await assessReissue(this.prisma, {
-          symbol: target.symbol,
-          timeframe: this.toPrismaTimeframe(target.timeframe) as string,
-          action: signal.action as 'BUY' | 'SELL',
-          entry: signal.entry === undefined || signal.entry === null ? null : Number(signal.entry),
-          stopLoss:
-            signal.stopLoss === undefined || signal.stopLoss === null
-              ? null
-              : Number(signal.stopLoss),
-        });
+          const result = (await this.confluence.gatedSignal(target.symbol, timeframe, {
+            enforce: true,
+          })) as {
+            signal?: Record<string, unknown>;
+            confluence?: Record<string, unknown>;
+          };
 
-        if (!verdict.allow) {
+          const signal = result.signal;
+          if (!signal || !this.worthNotifying(signal)) {
+            skipped += 1;
+            continue;
+          }
+
+          // Does the picture above this entry support it?
+          const anchor = this.anchored(signal, context);
+          if (!anchor.allow) {
+            this.logger.debug(
+              `withheld ${signal.action} ${target.symbol} ${timeframe}: ${anchor.reason}`,
+            );
+            skipped += 1;
+            continue;
+          }
+
+          // The reissue decision proper, now that there is an action and a
+          // price to judge. Shared with the manual scan so the two cannot
+          // disagree about what counts as a genuinely new setup.
+          const verdict = await assessReissue(this.prisma, {
+            symbol: target.symbol,
+            timeframe: this.toPrismaTimeframe(timeframe) as string,
+            action: signal.action as 'BUY' | 'SELL',
+            entry:
+              signal.entry === undefined || signal.entry === null ? null : Number(signal.entry),
+            stopLoss:
+              signal.stopLoss === undefined || signal.stopLoss === null
+                ? null
+                : Number(signal.stopLoss),
+          });
+
+          if (!verdict.allow) {
+            this.logger.debug(
+              `withheld ${signal.action} ${target.symbol} ${timeframe}: ${verdict.reason}`,
+            );
+            skipped += 1;
+            continue;
+          }
+
+          await this.issue(
+            target,
+            signal,
+            result.confluence ?? {},
+            verdict.supersedesId,
+            `${anchor.reason} ${context.summary}`.trim(),
+          );
+          issued += 1;
+        } catch (error) {
+          // One unreachable timeframe must not end the instrument.
           this.logger.debug(
-            `withheld ${signal.action} ${target.symbol} ${target.timeframe}: ${verdict.reason}`,
+            `scan failed for ${target.symbol} ${timeframe}: ${(error as Error).message}`,
           );
           skipped += 1;
-          continue;
         }
-
-        await this.issue(target, signal, result.confluence ?? {}, verdict.supersedesId);
-        issued += 1;
-      } catch (error) {
-        // One unreachable symbol must not end the pass.
-        this.logger.debug(`scan failed for ${target.symbol}: ${(error as Error).message}`);
-        skipped += 1;
       }
     }
 
-    return { scanned: batch.length, issued, skipped };
+    // `covered`, not `batch.length` — reporting the batch as scanned when the
+    // budget cut it short would overstate coverage in the one situation where
+    // knowing the real number matters.
+    return { scanned: covered, issued, skipped };
   }
 
   /** The quality bar for an unprompted notification. */
@@ -289,6 +555,8 @@ export class AutoScanService {
     signal: Record<string, unknown>,
     confluence: Record<string, unknown>,
     supersedesId: string | null = null,
+    /** What the timeframes above this entry said, and why it was allowed. */
+    higherTimeframe = '',
   ): Promise<void> {
     const instrument = await this.marketData.findInstrument(target.symbol);
     const targets = (signal.targets as Array<{ level: number; price: number }>) ?? [];
@@ -344,6 +612,7 @@ export class AutoScanService {
       name: instrument.name,
       action: signal.action as 'BUY' | 'SELL',
       timeframe: target.timeframe,
+      horizon: (signal.horizon as string) ?? stored.horizon,
       entry: Number(signal.entry),
       stopLoss: Number(signal.stopLoss),
       targets: targets.map((t) => t.price),
@@ -352,7 +621,12 @@ export class AutoScanService {
       reason:
         (signal.explanation as string) ||
         ((signal.reasons as string[]) ?? []).slice(0, 2).join(' '),
+      reasons: (signal.reasons as string[]) ?? [],
       confluence: (confluence.summary as string) ?? '',
+      higherTimeframe,
+      entryZone: (signal.entryZone as { low: number; high: number } | null) ?? null,
+      riskPercent: Number(signal.riskPercent ?? 0),
+      assetClass: instrument.assetClass,
       createdAt: stored.createdAt,
     });
   }

@@ -228,6 +228,35 @@ export class MarketDataService {
     });
   }
 
+  /**
+   * Funding, open interest and positioning from the first venue that has them.
+   *
+   * Cached for five minutes rather than seconds: funding settles every eight
+   * hours and the open-interest series is hourly, so a fresher read would cost
+   * requests without telling us anything new.
+   *
+   * Null is a normal answer — only crypto has a perpetuals market, and the
+   * analysis drops the group rather than scoring its absence.
+   */
+  async getDerivatives(symbol: string) {
+    const instrument = await this.findInstrument(symbol);
+    if (instrument.assetClass !== 'CRYPTO') return null;
+    const ref = this.toRef(instrument);
+
+    return this.redis.wrap(`derivatives:${instrument.symbol}`, 300, async () => {
+      for (const provider of this.chain) {
+        if (!provider.getDerivatives || !provider.supports(ref)) continue;
+        try {
+          const data = await provider.getDerivatives(ref);
+          if (data) return data;
+        } catch {
+          // Supplementary context — never worth failing an analysis over.
+        }
+      }
+      return null;
+    });
+  }
+
   // ── Instruments ────────────────────────────────────────────────
 
   async findInstrument(symbol: string): Promise<Instrument> {

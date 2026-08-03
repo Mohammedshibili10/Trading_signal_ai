@@ -43,6 +43,12 @@ BASE_WEIGHTS: dict[str, float] = {
     "VOLATILITY": 0.06,
     "NEWS": 0.06,
     "FUNDAMENTALS": 0.04,
+    # Crypto only. Sized just above FUNDAMENTALS, which crypto does not have —
+    # funding and positioning are the nearest thing that market offers to a
+    # read on what holders are actually doing, and like fundamentals they set
+    # context rather than time an entry. Dropped and redistributed for every
+    # other asset class, so this weight never dilutes an equity blend.
+    "DERIVATIVES": 0.08,
 }
 
 
@@ -668,6 +674,8 @@ def build(
     weights: dict[str, float] | None = None,
     order_flow: dict | None = None,
     order_book: dict | None = None,
+    derivatives: dict | None = None,
+    ict: dict | None = None,
 ) -> list[Factor]:
     """
     Assemble every applicable factor group, with weights renormalised.
@@ -712,6 +720,26 @@ def build(
             )
         factors.append(vol_f)
 
+    # ICT refines market structure rather than standing beside it.
+    #
+    # A killzone, an OTE band and a breaker are statements about the same levels
+    # SMC already found — they are not independent evidence, so they adjust that
+    # group instead of forming one of their own. Given a group of its own they
+    # would double-count the structural read they are derived from.
+    if ict and ict.get("available") and ict.get("score"):
+        for index, factor in enumerate(factors):
+            if factor.group != "MARKET_STRUCTURE":
+                continue
+            ict_score = _clip(float(ict.get("score", 0.0)))
+            factors[index] = Factor(
+                group=factor.group,
+                label=factor.label,
+                score=_clip(factor.score * 0.75 + ict_score * 0.25),
+                weight=factor.weight,
+                detail=f"{factor.detail}; {ict.get('summary', '')}"[:400],
+            )
+            break
+
     # Live depth adjusts market structure — resting size is the measured form of
     # the liquidity that structure otherwise infers from where price once turned.
     if order_book and order_book.get("available"):
@@ -731,6 +759,20 @@ def build(
     news_f = news_factor(sentiment)
     if news_f is not None:
         factors.append(news_f)
+
+    # Perpetual funding and positioning. Crypto-only in practice — no other
+    # class supplies it — and dropped entirely when the venue returned nothing,
+    # so a pair without a listed perpetual is not scored as neutral.
+    if derivatives and derivatives.get("available"):
+        factors.append(
+            Factor(
+                group="DERIVATIVES",
+                label="Funding & positioning",
+                score=_clip(float(derivatives.get("score", 0.0))),
+                weight=BASE_WEIGHTS["DERIVATIVES"],
+                detail=(derivatives.get("summary") or "")[:400],
+            )
+        )
 
     # Fundamentals only make sense for equities and investment products.
     if asset_class in {"EQUITY", "INVESTMENT"}:
