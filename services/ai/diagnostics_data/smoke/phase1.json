@@ -1,0 +1,950 @@
+{
+  "meta": {
+    "generatedAt": "2026-08-15T12:57:03+00:00",
+    "commit": "1a89e03",
+    "seriesReplayed": 5,
+    "barsScored": 35,
+    "signalsEmitted": 1,
+    "tradesResolved": 1,
+    "minTradesForConfidence": 200,
+    "replayErrors": 0,
+    "calibrationEnabled": false,
+    "timeframes": [
+      "4h"
+    ],
+    "populationNarrative": "The replay scored **35 bars** across 5 series and emitted **1 tradeable signals** \u2014 a firing rate of **2.86%** of scored bars. 1 of those resolved into simulated trades.\n\nThe engine declined on the remaining 34 bars. Its own stated reasons, most frequent first:\n\n- `Factor groups are balanced with no directional edge` \u2014 5 (14.7%)\n- `Confidence 3 is below the 45 floor` \u2014 4 (11.8%)\n- `Confidence 22 is below the 45 floor` \u2014 3 (8.8%)\n- `Confidence 6 is below the 45 floor` \u2014 2 (5.9%)\n- `Confidence 7 is below the 45 floor` \u2014 2 (5.9%)\n- `Confidence 5 is below the 45 floor` \u2014 2 (5.9%)\n\nCandle store: 38877 rows read, 5 series built; dropped 0 unparseable, 0 invalid, 0 duplicate; 0 future-dated.",
+    "seriesDetail": [
+      {
+        "series": "BTC:4h",
+        "assetClass": "CRYPTO",
+        "bars": 200,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "ETH:4h",
+        "assetClass": "CRYPTO",
+        "bars": 200,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "SOL:4h",
+        "assetClass": "CRYPTO",
+        "bars": 200,
+        "sources": [
+          "binance",
+          "simulated"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "BNB:4h",
+        "assetClass": "CRYPTO",
+        "bars": 193,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "XRP:4h",
+        "assetClass": "CRYPTO",
+        "bars": 193,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      }
+    ]
+  },
+  "ablation": {
+    "id": "1.1",
+    "title": "Zero-cost ablation",
+    "withCosts": {
+      "trades": 1,
+      "netR": 0.701,
+      "grossR": 0.778,
+      "costR": 0.077,
+      "expectancyR": 0.7008,
+      "grossExpectancyR": 0.778,
+      "profitFactor": Infinity,
+      "hitRate": 1.0,
+      "averageWinR": 0.701,
+      "averageLossR": 0.0,
+      "largestWinR": 0.701,
+      "largestLossR": 0.0,
+      "sharpe": 0.0,
+      "sortino": 0.0,
+      "maxDrawdownR": 0.0,
+      "calmar": 0.0,
+      "averageBarsHeld": 55.0,
+      "expectancyStderr": 0.0,
+      "tStat": 0.0,
+      "exitMix": {
+        "series_end": 1
+      },
+      "underpowered": true
+    },
+    "zeroCost": {
+      "trades": 1,
+      "netR": 0.778,
+      "grossR": 0.778,
+      "costR": 0.0,
+      "expectancyR": 0.778,
+      "grossExpectancyR": 0.778,
+      "profitFactor": Infinity,
+      "hitRate": 1.0,
+      "averageWinR": 0.778,
+      "averageLossR": 0.0,
+      "largestWinR": 0.778,
+      "largestLossR": 0.0,
+      "sharpe": 0.0,
+      "sortino": 0.0,
+      "maxDrawdownR": 0.0,
+      "calmar": 0.0,
+      "averageBarsHeld": 55.0,
+      "expectancyStderr": 0.0,
+      "tStat": 0.0,
+      "exitMix": {
+        "series_end": 1
+      },
+      "underpowered": true
+    },
+    "costDragFractionOfGross": 0.0993,
+    "averageCostR": 0.0772,
+    "breakEvenHitRateAtQuotedRR": 0.3861,
+    "unresolved": {
+      "neverFilled": 0,
+      "insufficientForwardBars": 0,
+      "malformed": 0
+    },
+    "verdict": "EDGE_SURVIVES_COSTS",
+    "interpretation": "Expectancy is +0.7008R per trade after costs on 1 trades (t = +0.00). The edge survives the friction the engine models. Whether it survives the friction the market charges is a question for the paper-forward test, not for this one."
+  },
+  "lag": {
+    "id": "1.2",
+    "title": "One-bar lag test (+1 bar)",
+    "baseline": {
+      "trades": 1,
+      "netR": 0.701,
+      "grossR": 0.778,
+      "costR": 0.077,
+      "expectancyR": 0.7008,
+      "grossExpectancyR": 0.778,
+      "profitFactor": Infinity,
+      "hitRate": 1.0,
+      "averageWinR": 0.701,
+      "averageLossR": 0.0,
+      "largestWinR": 0.701,
+      "largestLossR": 0.0,
+      "sharpe": 0.0,
+      "sortino": 0.0,
+      "maxDrawdownR": 0.0,
+      "calmar": 0.0,
+      "averageBarsHeld": 55.0,
+      "expectancyStderr": 0.0,
+      "tStat": 0.0,
+      "exitMix": {
+        "series_end": 1
+      },
+      "underpowered": true
+    },
+    "lagged": {
+      "trades": 1,
+      "netR": 0.81,
+      "grossR": 0.888,
+      "costR": 0.078,
+      "expectancyR": 0.8104,
+      "grossExpectancyR": 0.888,
+      "profitFactor": Infinity,
+      "hitRate": 1.0,
+      "averageWinR": 0.81,
+      "averageLossR": 0.0,
+      "largestWinR": 0.81,
+      "largestLossR": 0.0,
+      "sharpe": 0.0,
+      "sortino": 0.0,
+      "maxDrawdownR": 0.0,
+      "calmar": 0.0,
+      "averageBarsHeld": 54.0,
+      "expectancyStderr": 0.0,
+      "tStat": 0.0,
+      "exitMix": {
+        "series_end": 1
+      },
+      "underpowered": true
+    },
+    "delta": {
+      "netR": 0.11,
+      "expectancyR": 0.1096,
+      "hitRate": 0.0
+    },
+    "expectancyRetainedFraction": 1.156,
+    "verdict": "STABLE \u2014 116% of expectancy survives one bar of delay, which is consistent with a real edge rather than with leakage.",
+    "note": "The lag test measures the symptom. The five data-path questions in the audit section locate the cause, and are answered from the source rather than from this run \u2014 a system can pass the lag test on stored candles and still leak live, because the stored series contains only closed bars and the live feed does not."
+  },
+  "randomControl": {
+    "id": "1.3",
+    "title": "Random-direction control",
+    "seeds": 5,
+    "tradesPerSeed": 1,
+    "targetTradesPerSeed": 500,
+    "tradeCountShortfall": 499,
+    "real": {
+      "trades": 1,
+      "netR": 0.701,
+      "grossR": 0.778,
+      "costR": 0.077,
+      "expectancyR": 0.7008,
+      "grossExpectancyR": 0.778,
+      "profitFactor": Infinity,
+      "hitRate": 1.0,
+      "averageWinR": 0.701,
+      "averageLossR": 0.0,
+      "largestWinR": 0.701,
+      "largestLossR": 0.0,
+      "sharpe": 0.0,
+      "sortino": 0.0,
+      "maxDrawdownR": 0.0,
+      "calmar": 0.0,
+      "averageBarsHeld": 55.0,
+      "expectancyStderr": 0.0,
+      "tStat": 0.0,
+      "exitMix": {
+        "series_end": 1
+      },
+      "underpowered": true
+    },
+    "randomDistribution": {
+      "netR": {
+        "min": -1.077,
+        "p05": -1.077,
+        "p25": -1.077,
+        "median": -1.077,
+        "p75": 0.701,
+        "p95": 0.701,
+        "max": 0.701,
+        "mean": -0.366,
+        "stdev": 0.974
+      },
+      "expectancyR": {
+        "min": -1.077,
+        "p05": -1.077,
+        "p25": -1.077,
+        "median": -1.077,
+        "p75": 0.701,
+        "p95": 0.701,
+        "max": 0.701,
+        "mean": -0.366,
+        "stdev": 0.974
+      }
+    },
+    "realPercentileOfRandom": {
+      "netR": 60.0,
+      "expectancyR": 60.0
+    },
+    "seedDetail": [
+      {
+        "seed": 20260815,
+        "trades": 1,
+        "netR": 0.701,
+        "expectancyR": 0.7008,
+        "hitRate": 1.0
+      },
+      {
+        "seed": 20260816,
+        "trades": 1,
+        "netR": -1.077,
+        "expectancyR": -1.0772,
+        "hitRate": 0.0
+      },
+      {
+        "seed": 20260817,
+        "trades": 1,
+        "netR": -1.077,
+        "expectancyR": -1.0772,
+        "hitRate": 0.0
+      },
+      {
+        "seed": 20260818,
+        "trades": 1,
+        "netR": -1.077,
+        "expectancyR": -1.0772,
+        "hitRate": 0.0
+      },
+      {
+        "seed": 20260819,
+        "trades": 1,
+        "netR": 0.701,
+        "expectancyR": 0.7008,
+        "hitRate": 1.0
+      }
+    ],
+    "verdict": "INDISTINGUISHABLE_FROM_RANDOM \u2014 the real system sits at the 60th percentile of the coin-flip distribution. The signal layer is not contributing measurable directional information; the observed results originate in exit geometry and costs. Sample caveat: 1 trades per seed against the 500 the protocol asks for \u2014 the distribution is correspondingly wide and the percentile correspondingly imprecise."
+  },
+  "intrabar": {
+    "id": "1.4",
+    "title": "Intrabar path audit",
+    "closedTrades": 1,
+    "ambiguousTrades": 0,
+    "ambiguityRate": 0.0,
+    "ambiguityByTimeframe": {
+      "4h": {
+        "trades": 1,
+        "ambiguous": 0,
+        "rate": 0.0
+      }
+    },
+    "pessimistic": {
+      "trades": 1,
+      "netR": 0.701,
+      "grossR": 0.778,
+      "costR": 0.077,
+      "expectancyR": 0.7008,
+      "grossExpectancyR": 0.778,
+      "profitFactor": Infinity,
+      "hitRate": 1.0,
+      "averageWinR": 0.701,
+      "averageLossR": 0.0,
+      "largestWinR": 0.701,
+      "largestLossR": 0.0,
+      "sharpe": 0.0,
+      "sortino": 0.0,
+      "maxDrawdownR": 0.0,
+      "calmar": 0.0,
+      "averageBarsHeld": 55.0,
+      "expectancyStderr": 0.0,
+      "tStat": 0.0,
+      "exitMix": {
+        "series_end": 1
+      },
+      "underpowered": true
+    },
+    "optimistic": {
+      "trades": 1,
+      "netR": 0.701,
+      "grossR": 0.778,
+      "costR": 0.077,
+      "expectancyR": 0.7008,
+      "grossExpectancyR": 0.778,
+      "profitFactor": Infinity,
+      "hitRate": 1.0,
+      "averageWinR": 0.701,
+      "averageLossR": 0.0,
+      "largestWinR": 0.701,
+      "largestLossR": 0.0,
+      "sharpe": 0.0,
+      "sortino": 0.0,
+      "maxDrawdownR": 0.0,
+      "calmar": 0.0,
+      "averageBarsHeld": 55.0,
+      "expectancyStderr": 0.0,
+      "tStat": 0.0,
+      "exitMix": {
+        "series_end": 1
+      },
+      "underpowered": true
+    },
+    "policySpread": {
+      "netR": 0.0,
+      "expectancyR": 0.0,
+      "hitRate": 0.0
+    },
+    "verdict": "ACCEPTABLE_AMBIGUITY \u2014 0.0% of exits are ambiguous and expectancy moves +0.0000R between resolution policies. The pessimistic result stands as the honest one.",
+    "note": "Only the pessimistic column is a result. The optimistic column is the size of the assumption, shown so it cannot be mistaken for a finding."
+  },
+  "reconcile": {
+    "id": "1.5",
+    "title": "Live vs backtest reconciliation",
+    "mode": "DETERMINISM_ONLY",
+    "liveEntries": 0,
+    "determinism": {
+      "ran": true,
+      "series": "BTC:4h",
+      "signalsCompared": 1,
+      "barsScored": 3,
+      "identical": true
+    },
+    "verdict": "NOT_YET_INSTRUMENTED \u2014 no live snapshots exist to reconcile against. The live path now writes them (see diagnostics/live_log.py); this check becomes a real comparison as soon as the scanner has run with logging enabled. Until then it asserts only that the replay harness is deterministic, which is a precondition for the comparison and not a substitute for it."
+  },
+  "excursion": {
+    "id": "1.6",
+    "title": "MAE / MFE distributions",
+    "trades": 1,
+    "winners": 1,
+    "losers": 0,
+    "maeHistogram": {
+      "winners": {
+        "0.25-0.50R": 1
+      },
+      "losers": {}
+    },
+    "mfeHistogram": {
+      "winners": {
+        "1.00-1.25R": 1
+      },
+      "losers": {}
+    },
+    "summary": {
+      "winners": {
+        "maeR": {
+          "median": 0.285,
+          "mean": 0.285,
+          "p75": 0.285,
+          "p90": 0.285,
+          "max": 0.285
+        },
+        "mfeR": {
+          "median": 1.085,
+          "mean": 1.085,
+          "p75": 1.085,
+          "p90": 1.085,
+          "max": 1.085
+        }
+      },
+      "losers": {
+        "maeR": {},
+        "mfeR": {}
+      }
+    },
+    "losingTradesWithMfeOverHalfTargetPct": 0.0,
+    "winningTradesWithMaeOverHalfStopPct": 0.0,
+    "thresholds": {
+      "mfeFractionOfTarget": 0.5,
+      "maeFractionOfStop": 0.5
+    },
+    "targetSensitivity": [
+      {
+        "targetR": 0.5,
+        "reachedPct": 100.0,
+        "trades": 1
+      },
+      {
+        "targetR": 0.75,
+        "reachedPct": 100.0,
+        "trades": 1
+      },
+      {
+        "targetR": 1.0,
+        "reachedPct": 100.0,
+        "trades": 1
+      },
+      {
+        "targetR": 1.25,
+        "reachedPct": 0.0,
+        "trades": 0
+      },
+      {
+        "targetR": 1.5,
+        "reachedPct": 0.0,
+        "trades": 0
+      },
+      {
+        "targetR": 2.0,
+        "reachedPct": 0.0,
+        "trades": 0
+      },
+      {
+        "targetR": 2.5,
+        "reachedPct": 0.0,
+        "trades": 0
+      },
+      {
+        "targetR": 3.0,
+        "reachedPct": 0.0,
+        "trades": 0
+      }
+    ],
+    "verdict": "GEOMETRY_REASONABLE \u2014 0% of losers reached half their target and 0% of winners reached half their stop. Neither is the dominant failure."
+  },
+  "audit": {
+    "id": "1.2-audit",
+    "title": "Data-path audit",
+    "questions": [
+      {
+        "question": "1. Does the live feed's candle array include the in-progress (unclosed) candle as its last element?",
+        "answer": "YES \u2014 at least one live provider passes the forming bar through.",
+        "severity": "CRITICAL",
+        "detail": "Guarded: Binance REST klines. Unguarded: Yahoo chart API, Simulated provider. Yahoo's chart endpoint returns the current, still-forming bar as the last element of `timestamp`/`quote` during a session, exactly as Binance does. The Binance provider filters it out by `closeTime`; the Yahoo path has no equivalent filter, so every equity and index analysis run during market hours scores a partial bar as though it were complete. Its close is wherever price happens to sit, its range is truncated and its volume is a fraction of normal \u2014 and the engine reads that bar's close as the signal's entry price.",
+        "evidence": [
+          {
+            "path": "apps/api/src/market-data/providers/binance.provider.ts",
+            "line": 75,
+            "text": "updatedAt: new Date(data.closeTime).toISOString(),"
+          },
+          {
+            "path": "apps/api/src/market-data/providers/binance.provider.ts",
+            "line": 108,
+            "text": "// `closeTime` (field 6) is the venue's own answer to \"is this done?\", so"
+          },
+          {
+            "path": "apps/api/src/market-data/providers/yahoo.provider.ts",
+            "line": 158,
+            "text": "async getCandles("
+          },
+          {
+            "path": "apps/api/src/market-data/providers/yahoo.provider.ts",
+            "line": 189,
+            "text": "candles.push({"
+          },
+          {
+            "path": "apps/api/src/market-data/providers/simulated.provider.ts",
+            "line": 81,
+            "text": "async getCandles("
+          },
+          {
+            "path": "apps/api/src/market-data/providers/simulated.provider.ts",
+            "line": 132,
+            "text": "candles.push({"
+          }
+        ]
+      },
+      {
+        "question": "2. Does the backtest iterate only closed candles?",
+        "answer": "YES \u2014 for both simulators, but only because the store contains no forming bars.",
+        "severity": "MEDIUM",
+        "detail": "The strategy simulator stops one bar short of the end so a next-bar fill always exists, and the replay harness slices at `candles[: i + 1]`, so neither can see past the bar it is scoring. The qualification matters: both iterate whatever the candle store holds, and the store is written from the same providers audited in question 1. A forming bar persisted once becomes a closed bar to every later reader, and no simulator can detect that after the fact.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/backtest.py",
+            "line": 292,
+            "text": "for i in range(start, len(df) - 1):"
+          },
+          {
+            "path": "services/ai/app/diagnostics/replay.py",
+            "line": 18,
+            "text": "**The slice ends at a closed bar.** ``candles[: i + 1]`` makes bar *i* the last"
+          },
+          {
+            "path": "services/ai/app/diagnostics/replay.py",
+            "line": 199,
+            "text": "Every call sees ``candles[: i + 1]`` and nothing else."
+          },
+          {
+            "path": "services/ai/app/diagnostics/replay.py",
+            "line": 217,
+            "text": "window = series.candles[: i + 1]"
+          }
+        ]
+      },
+      {
+        "question": "3. Is any feature computed using the high, low or close of the same bar the signal fires on?",
+        "answer": "YES \u2014 by design, and it is sound only if that bar is closed.",
+        "severity": "HIGH",
+        "detail": "The whole analysis is anchored on the last element of the frame: the current price is its close, candle anatomy is measured on it, the stop is derived from the last 20 bars' high/low including it, and every moving average and range measure ends on it. That is correct behaviour for a signal generated *after* a bar closes \u2014 it is the definition of acting on the latest complete information. It becomes look-ahead the moment the last element is a bar that has not finished, because then its high, low and close are all still moving. The correctness of this entire layer is therefore conditional on question 1, and question 1 fails on the Yahoo path.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 71,
+            "text": "price = float(df[\"close\"].iloc[-1])"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 88,
+            "text": "price = float(df[\"close\"].iloc[-1])"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 240,
+            "text": "price = float(df[\"close\"].iloc[-1])"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 270,
+            "text": "anatomy = analyse_candle("
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 271,
+            "text": "df, len(df) - 1,"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 545,
+            "text": "w_anatomy = analyse_candle("
+          },
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 79,
+            "text": "recent = df.iloc[-20:]"
+          }
+        ]
+      },
+      {
+        "question": "4. Is the fill price the signal bar's close?",
+        "answer": "SPLIT \u2014 the strategy simulator fills at the next bar's open; the published signal quotes the signal bar's close as its entry.",
+        "severity": "HIGH",
+        "detail": "`backtest.py` is explicit and correct: `fill = opens[i + 1]`. The signal engine is not a simulator and never fills anything, but the entry price it publishes is `df['close'].iloc[-1]` \u2014 the close of the bar it fired on. Anyone acting on that number is, by construction, trying to trade a price that stopped being available the instant the bar ended, and the live tracker then marks the entry as filled when the *next polled quote* sits within a quarter-ATR band around it. So the recorded fill is neither a real fill nor a next-open fill; it is 'price was still nearby five minutes later'. The replay harness in this package deliberately refuses to use the published entry as a fill and prices every trade at the next bar's open instead.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/backtest.py",
+            "line": 345,
+            "text": "fill = opens[i + 1]  # next bar's open \u2014 never the signal bar's close"
+          },
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 82,
+            "text": "entry = price"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 677,
+            "text": "const filled = long ? price <= limit : price >= limit;"
+          }
+        ]
+      },
+      {
+        "question": "5. Are any auxiliary data sources timestamped at publish time rather than effective time?",
+        "answer": "YES \u2014 every one of them, and none carries an effective timestamp at all.",
+        "severity": "HIGH",
+        "detail": "Funding, open interest and order-book depth all reach the engine as a single current snapshot with no timestamp attached, so a replay cannot place them in time and the live path cannot tell a stale snapshot from a fresh one. News and economic events carry `publishedAt` / `scheduledAt` only \u2014 publication time, not the moment the information became effective, and for an economic release those differ by the entire embargo period. In practice this does not currently leak into the replay, because the replay passes none of these inputs: it reconstructs signals from candles alone. That is itself the finding \u2014 the live engine scores with evidence the measured system never sees, so live and replay are not the same system even before drift is considered.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/derivatives.py",
+            "line": 2,
+            "text": "Perpetual-futures funding, open interest and positioning."
+          },
+          {
+            "path": "services/ai/app/engine/derivatives.py",
+            "line": 6,
+            "text": "carry: price tells you where the market is, funding tells you what it costs to"
+          },
+          {
+            "path": "services/ai/app/engine/orderbook.py",
+            "line": 23,
+            "text": "**Spread and depth** \u2014 execution quality. A signal whose target is inside the"
+          },
+          {
+            "path": "services/ai/app/engine/orderbook.py",
+            "line": 51,
+            "text": "Read a depth snapshot."
+          },
+          {
+            "path": "services/ai/app/engine/sentiment.py",
+            "line": 243,
+            "text": "age_hours = float(item.get(\"ageHours\", 0.0))"
+          },
+          {
+            "path": "services/ai/app/engine/sentiment.py",
+            "line": 245,
+            "text": "decay = 0.5 ** (age_hours / half_life_hours)"
+          },
+          {
+            "path": "apps/api/src/news/news.module.ts",
+            "line": 56,
+            "text": "orderBy: { publishedAt: 'desc' },"
+          },
+          {
+            "path": "apps/api/src/news/news.module.ts",
+            "line": 79,
+            "text": "publishedAt: Date;"
+          },
+          {
+            "path": "apps/api/src/jobs/signal-monitor.service.ts",
+            "line": 266,
+            "text": "where: { scheduledAt: { gte: new Date(now), lte: new Date(now + 24 * 3_600_000) } },"
+          },
+          {
+            "path": "apps/api/src/jobs/signal-monitor.service.ts",
+            "line": 267,
+            "text": "orderBy: { scheduledAt: 'asc' },"
+          }
+        ]
+      }
+    ],
+    "additionalFindings": [
+      {
+        "question": "A. Are stop and target resolved against bar ranges or against polled quotes?",
+        "answer": "POLLED QUOTES \u2014 resolution is blind to anything between polls.",
+        "severity": "CRITICAL",
+        "detail": "The live tracker compares a single spot price from `getQuotes()` against the stop and each target. A stop or target touched between two polls is never recorded, and when both were touched, which one is reported depends on where price happened to sit at poll time rather than on which came first. The comment above it claims the pessimistic read; a point sample is not pessimistic, it is blind. This systematically under-records both stop-outs and target hits, and pushes outcomes into the non-price endings \u2014 which is precisely the distribution the live signal table shows.",
+        "evidence": [
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 649,
+            "text": "const quotes = await this.marketData.getQuotes([...new Set(active.map((s) => s.symbol))]);"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 690,
+            "text": "if (stop !== null && ((long && price <= stop) || (!long && price >= stop))) {"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 705,
+            "text": "const reached = long ? price >= level : price <= level;"
+          }
+        ]
+      },
+      {
+        "question": "B. Is the entry-fill flag a fill, or a proximity test?",
+        "answer": "PROXIMITY \u2014 it is true by construction almost immediately.",
+        "severity": "HIGH",
+        "detail": "`entryFilledAt` is set when a polled price sits inside the published entry band. That band is entry \u00b1 0.25 ATR and the entry is the last close, so on the first poll after issue the condition is satisfied for virtually every signal that has not already moved a quarter-ATR. The field is therefore recording 'the signal was still alive at the next poll', while the rest of the system reads it as 'a position existed' \u2014 and that reading is what decides whether an early exit is booked as a cancelled trade or as a setup that never happened.",
+        "evidence": [
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 673,
+            "text": "if (signal.entryFilledAt === null && entry !== null) {"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 674,
+            "text": "const limit = long"
+          }
+        ]
+      },
+      {
+        "question": "C. Are non-price endings counted as losses?",
+        "answer": "YES \u2014 every unresolved signal defaults to \u22121R.",
+        "severity": "CRITICAL",
+        "detail": "The analytics layer falls back to `\u22121` for any signal without a recorded `realisedR` that is not a target hit. EXPIRED, INVALID and CANCELLED signals all take that path, and the schema is explicit that none of them represents a financial loss \u2014 INVALID never had a position at all. Some are additionally persisted with `realisedR = \u22121` on signals whose `entryFilledAt` is null, so the fallback is not the only source. Every hit-rate, expectancy and profit-factor figure the platform reports is computed over a population where setups that were never entered contribute full-size losses.",
+        "evidence": [
+          {
+            "path": "apps/api/src/analysis/analytics.service.ts",
+            "line": 171,
+            "text": "const rOf = (r: TradeRow) => num(r.realisedR) ?? (r.status.startsWith('HIT_') ? 1 : -1);"
+          },
+          {
+            "path": "apps/api/src/analysis/analytics.service.ts",
+            "line": 305,
+            "text": "const rs = rows.map((r) => num(r.realisedR) ?? (r.status.startsWith('HIT_') ? 1 : -1));"
+          },
+          {
+            "path": "apps/api/src/analysis/analytics.service.ts",
+            "line": 334,
+            "text": "const rs = rows.map((r) => num(r.realisedR) ?? (r.status.startsWith('HIT_') ? 1 : -1));"
+          }
+        ]
+      },
+      {
+        "question": "D. Does revalidation compare like with like?",
+        "answer": "NO \u2014 a calibrated confidence is compared against an uncalibrated one.",
+        "severity": "HIGH",
+        "detail": "A signal's stored confidence is produced by a pipeline run with walk-forward calibration applied. Revalidation re-runs the pipeline with `withCalibration: false` \u2014 for a defensible reason, since the calibrated pass is roughly fifty times more expensive \u2014 and then subtracts one from the other and calls the difference a confidence drop. Any systematic offset the calibrator introduces is therefore read as thesis decay. Compounding it, the job runs every few minutes against every open signal regardless of timeframe, so a daily signal is re-scored on the order of three hundred times a day, each one an independent opportunity to trip a 22-point threshold. The probability of at least one trip over a multi-day hold approaches certainty whether or not anything has changed.",
+        "evidence": [
+          {
+            "path": "apps/api/src/jobs/signal-monitor.service.ts",
+            "line": 102,
+            "text": "this.analysis.analyse(symbol, timeframe, { withCalibration: false }),"
+          },
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 40,
+            "text": "CONFIDENCE_DROP_CRITICAL = 22.0"
+          },
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 182,
+            "text": "elif drop >= CONFIDENCE_DROP_CRITICAL:"
+          }
+        ]
+      },
+      {
+        "question": "E. Can a trade in normal drawdown be closed by accumulated warnings?",
+        "answer": "YES \u2014 three warnings force a close, and one of them fires on ordinary adverse excursion.",
+        "severity": "CRITICAL",
+        "detail": "Three WARNING findings promote to CRITICAL and close the position. `STOP_RISK` raises a warning once price has travelled 55% of the way to the stop \u2014 which is not a malfunction, it is the middle of the range every trade is designed to survive. Order flow can contribute two warnings on its own, and thin volume or a volatility shift supplies the third. The result is a rule that preferentially closes trades that are temporarily losing, before they can reach a target quoted at 1.6R. It truncates the right tail of the outcome distribution and leaves the left tail intact, which is the exact opposite of what an exit rule is for.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 47,
+            "text": "STOP_PROXIMITY_WARNING = 0.55"
+          },
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 341,
+            "text": "elif len(warnings) >= 3:"
+          }
+        ]
+      },
+      {
+        "question": "F. Is the published reward:risk measured, or constructed?",
+        "answer": "CONSTRUCTED \u2014 the first target is placed at the ratio the gate requires.",
+        "severity": "HIGH",
+        "detail": "The first target is solved for as `min_risk_reward \u00d7 (1 + cost_r) + cost_r + 0.1`, and the gate then rejects anything below `min_risk_reward`. With the floor at 1.5 and cost negligible against a daily stop, that is 1.60 \u2014 which is the value carried by two thirds of the signals ever issued. The number is an input restated as an output. It is only a measurement when a structural level pulls the target in, and in that case it fails the gate. So the ratio can distinguish 'rejected' from 'accepted' and cannot say anything about how far price is likely to travel.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 209,
+            "text": "first_multiple = settings.min_risk_reward * (1.0 + cost_r) + cost_r + 0.1"
+          }
+        ]
+      }
+    ],
+    "criticalCount": 4,
+    "highCount": 6
+  },
+  "breakdowns": {
+    "session bucket": {
+      "asia": {
+        "trades": 1,
+        "netR": 0.701,
+        "grossR": 0.778,
+        "costR": 0.077,
+        "expectancyR": 0.7008,
+        "grossExpectancyR": 0.778,
+        "profitFactor": Infinity,
+        "hitRate": 1.0,
+        "averageWinR": 0.701,
+        "averageLossR": 0.0,
+        "largestWinR": 0.701,
+        "largestLossR": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "maxDrawdownR": 0.0,
+        "calmar": 0.0,
+        "averageBarsHeld": 55.0,
+        "expectancyStderr": 0.0,
+        "tStat": 0.0,
+        "exitMix": {
+          "series_end": 1
+        },
+        "underpowered": true
+      }
+    },
+    "timeframe": {
+      "4h": {
+        "trades": 1,
+        "netR": 0.701,
+        "grossR": 0.778,
+        "costR": 0.077,
+        "expectancyR": 0.7008,
+        "grossExpectancyR": 0.778,
+        "profitFactor": Infinity,
+        "hitRate": 1.0,
+        "averageWinR": 0.701,
+        "averageLossR": 0.0,
+        "largestWinR": 0.701,
+        "largestLossR": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "maxDrawdownR": 0.0,
+        "calmar": 0.0,
+        "averageBarsHeld": 55.0,
+        "expectancyStderr": 0.0,
+        "tStat": 0.0,
+        "exitMix": {
+          "series_end": 1
+        },
+        "underpowered": true
+      }
+    },
+    "asset class": {
+      "CRYPTO": {
+        "trades": 1,
+        "netR": 0.701,
+        "grossR": 0.778,
+        "costR": 0.077,
+        "expectancyR": 0.7008,
+        "grossExpectancyR": 0.778,
+        "profitFactor": Infinity,
+        "hitRate": 1.0,
+        "averageWinR": 0.701,
+        "averageLossR": 0.0,
+        "largestWinR": 0.701,
+        "largestLossR": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "maxDrawdownR": 0.0,
+        "calmar": 0.0,
+        "averageBarsHeld": 55.0,
+        "expectancyStderr": 0.0,
+        "tStat": 0.0,
+        "exitMix": {
+          "series_end": 1
+        },
+        "underpowered": true
+      }
+    },
+    "volatility regime": {
+      "NORMAL": {
+        "trades": 1,
+        "netR": 0.701,
+        "grossR": 0.778,
+        "costR": 0.077,
+        "expectancyR": 0.7008,
+        "grossExpectancyR": 0.778,
+        "profitFactor": Infinity,
+        "hitRate": 1.0,
+        "averageWinR": 0.701,
+        "averageLossR": 0.0,
+        "largestWinR": 0.701,
+        "largestLossR": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "maxDrawdownR": 0.0,
+        "calmar": 0.0,
+        "averageBarsHeld": 55.0,
+        "expectancyStderr": 0.0,
+        "tStat": 0.0,
+        "exitMix": {
+          "series_end": 1
+        },
+        "underpowered": true
+      }
+    },
+    "direction": {
+      "SELL": {
+        "trades": 1,
+        "netR": 0.701,
+        "grossR": 0.778,
+        "costR": 0.077,
+        "expectancyR": 0.7008,
+        "grossExpectancyR": 0.778,
+        "profitFactor": Infinity,
+        "hitRate": 1.0,
+        "averageWinR": 0.701,
+        "averageLossR": 0.0,
+        "largestWinR": 0.701,
+        "largestLossR": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "maxDrawdownR": 0.0,
+        "calmar": 0.0,
+        "averageBarsHeld": 55.0,
+        "expectancyStderr": 0.0,
+        "tStat": 0.0,
+        "exitMix": {
+          "series_end": 1
+        },
+        "underpowered": true
+      }
+    }
+  }
+}

@@ -20,6 +20,7 @@ from ..engine import (
     sentiment as sentiment_engine,
     sessions,
 )
+from ..diagnostics import live_log
 from ..schemas import (
     AnalysisRequest,
     BatchSignalRequest,
@@ -56,7 +57,7 @@ def _sentiment_from(request: AnalysisRequest) -> dict[str, Any] | None:
 
 
 def _run(request: AnalysisRequest) -> dict[str, Any]:
-    return pipeline.analyse(
+    result = pipeline.analyse(
         [c.model_dump() for c in request.candles],
         symbol=request.symbol,
         name=request.name,
@@ -79,6 +80,19 @@ def _run(request: AnalysisRequest) -> dict[str, Any]:
         order_book=request.orderBook.model_dump() if request.orderBook else None,
         derivatives=request.derivatives.model_dump() if request.derivatives else None,
     )
+
+    # Record what the live path decided from, for §1.5 reconciliation. Off
+    # unless DIAGNOSTICS_SIGNAL_LOG is set, cannot raise, and is deliberately
+    # placed here rather than inside the pipeline so the engine stays unaware of
+    # it. Every route that produces a signal goes through this function.
+    live_log.emit(
+        result,
+        symbol=request.symbol,
+        timeframe=request.timeframe,
+        asset_class=request.assetClass,
+    )
+
+    return result
 
 
 @router.post("")

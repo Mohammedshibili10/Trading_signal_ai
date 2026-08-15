@@ -1,0 +1,2366 @@
+{
+  "meta": {
+    "generatedAt": "2026-08-15T13:09:16+00:00",
+    "commit": "1a89e03",
+    "seriesReplayed": 104,
+    "barsScored": 8693,
+    "signalsEmitted": 398,
+    "tradesResolved": 398,
+    "minTradesForConfidence": 200,
+    "replayErrors": 0,
+    "calibrationEnabled": false,
+    "timeframes": [
+      "15m",
+      "1h",
+      "4h",
+      "1D"
+    ],
+    "populationNarrative": "The replay scored **8,693 bars** across 104 series and emitted **398 tradeable signals** \u2014 a firing rate of **4.58%** of scored bars. 398 of those resolved into simulated trades.\n\nThe engine declined on the remaining 8,295 bars. Its own stated reasons, most frequent first:\n\n- `Confidence N is below the N floor` \u2014 6,870 (82.8%)\n- `Factor groups are balanced with no directional edge` \u2014 1,223 (14.7%)\n- `Reward-to-risk of N` \u2014 142 (1.7%)\n- `Reward-to-risk is N` \u2014 37 (0.4%)\n- `Volatility is at the Nth percentile and confidence is only N` \u2014 21 (0.3%)\n- `Trend and market structure point in opposite directions` \u2014 1 (0.0%)\n\nCandle store: 37741 rows read, 104 series built; dropped 0 unparseable, 0 invalid, 0 duplicate; 54 future-dated.\n\n**54 bars carry timestamps in the future** and were excluded from the replay. A bar the store says has not happened yet cannot be a bar the engine was entitled to see. Examples:\n\n- MF_HDFC_MIDCAP 1D stamped 1788287400 (17 days ahead, source=amfi)\n- MF_HDFC_MIDCAP 1D stamped 1788373800 (18 days ahead, source=amfi)\n- MF_HDFC_MIDCAP 1D stamped 1788460200 (19 days ahead, source=amfi)\n- MF_HDFC_MIDCAP 1D stamped 1788633000 (21 days ahead, source=amfi)\n- MF_HDFC_MIDCAP 1D stamped 1788719400 (22 days ahead, source=amfi)",
+    "seriesDetail": [
+      {
+        "series": "BTC:15m",
+        "assetClass": "CRYPTO",
+        "bars": 555,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.9982,
+          "largestGapBars": 848.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "ETH:15m",
+        "assetClass": "CRYPTO",
+        "bars": 555,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.9982,
+          "largestGapBars": 848.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "SOL:15m",
+        "assetClass": "CRYPTO",
+        "bars": 555,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.9982,
+          "largestGapBars": 848.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "USDINR:4h",
+        "assetClass": "FOREX",
+        "bars": 514,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0312,
+          "largestGapBars": 14.0,
+          "gapsOverTwoBars": 10
+        }
+      },
+      {
+        "series": "BNB:15m",
+        "assetClass": "CRYPTO",
+        "bars": 509,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.9961,
+          "largestGapBars": 850.0,
+          "gapsOverTwoBars": 2
+        }
+      },
+      {
+        "series": "XRP:15m",
+        "assetClass": "CRYPTO",
+        "bars": 503,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.996,
+          "largestGapBars": 850.0,
+          "gapsOverTwoBars": 2
+        }
+      },
+      {
+        "series": "EURUSD:4h",
+        "assetClass": "FOREX",
+        "bars": 479,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 12.5,
+          "gapsOverTwoBars": 4
+        }
+      },
+      {
+        "series": "EURUSD:15m",
+        "assetClass": "FOREX",
+        "bars": 397,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.8384,
+          "largestGapBars": 199.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "ADA:15m",
+        "assetClass": "CRYPTO",
+        "bars": 385,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.9974,
+          "largestGapBars": 51.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "DOGE:15m",
+        "assetClass": "CRYPTO",
+        "bars": 384,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.9974,
+          "largestGapBars": 50.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "AVAX:15m",
+        "assetClass": "CRYPTO",
+        "bars": 383,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.9974,
+          "largestGapBars": 51.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "JPYINR:4h",
+        "assetClass": "FOREX",
+        "bars": 361,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0361,
+          "largestGapBars": 13.8,
+          "gapsOverTwoBars": 10
+        }
+      },
+      {
+        "series": "BTC:1h",
+        "assetClass": "CRYPTO",
+        "bars": 326,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9969,
+          "largestGapBars": 123.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "ADA:1h",
+        "assetClass": "CRYPTO",
+        "bars": 318,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9968,
+          "largestGapBars": 123.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "ETH:1h",
+        "assetClass": "CRYPTO",
+        "bars": 317,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9968,
+          "largestGapBars": 123.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "SOL:1h",
+        "assetClass": "CRYPTO",
+        "bars": 317,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9968,
+          "largestGapBars": 123.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "AVAX:1h",
+        "assetClass": "CRYPTO",
+        "bars": 275,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9964,
+          "largestGapBars": 166.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "BNB:1h",
+        "assetClass": "CRYPTO",
+        "bars": 275,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9964,
+          "largestGapBars": 164.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "USDINR:15m",
+        "assetClass": "FOREX",
+        "bars": 275,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.5803,
+          "largestGapBars": 222.0,
+          "gapsOverTwoBars": 40
+        }
+      },
+      {
+        "series": "DOGE:1h",
+        "assetClass": "CRYPTO",
+        "bars": 274,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9963,
+          "largestGapBars": 165.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "GBPUSD:4h",
+        "assetClass": "FOREX",
+        "bars": 255,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0197,
+          "largestGapBars": 12.8,
+          "gapsOverTwoBars": 4
+        }
+      },
+      {
+        "series": "BANKNIFTY:4h",
+        "assetClass": "EQUITY",
+        "bars": 250,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "NIFTY50:4h",
+        "assetClass": "EQUITY",
+        "bars": 250,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "INFY:4h",
+        "assetClass": "EQUITY",
+        "bars": 248,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 69
+        }
+      },
+      {
+        "series": "RELIANCE:4h",
+        "assetClass": "EQUITY",
+        "bars": 248,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 69
+        }
+      },
+      {
+        "series": "HDFCBANK:4h",
+        "assetClass": "EQUITY",
+        "bars": 247,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 69
+        }
+      },
+      {
+        "series": "TCS:4h",
+        "assetClass": "EQUITY",
+        "bars": 247,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 69
+        }
+      },
+      {
+        "series": "NIFTYAUTO:4h",
+        "assetClass": "EQUITY",
+        "bars": 246,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 69
+        }
+      },
+      {
+        "series": "NIFTYIT:4h",
+        "assetClass": "EQUITY",
+        "bars": 246,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "XRP:1h",
+        "assetClass": "CRYPTO",
+        "bars": 246,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.9959,
+          "largestGapBars": 166.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "EURINR:4h",
+        "assetClass": "FOREX",
+        "bars": 243,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.095,
+          "largestGapBars": 14.2,
+          "gapsOverTwoBars": 11
+        }
+      },
+      {
+        "series": "NESTLEIND:4h",
+        "assetClass": "EQUITY",
+        "bars": 242,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "BAJFINANCE:4h",
+        "assetClass": "EQUITY",
+        "bars": 241,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "HINDUNILVR:4h",
+        "assetClass": "EQUITY",
+        "bars": 241,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "ASIANPAINT:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "BHARTIARTL:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0042,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 69
+        }
+      },
+      {
+        "series": "JSWSTEEL:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "MARUTI:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "NTPC:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "POWERGRID:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "SUNPHARMA:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 23.0,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "ULTRACEMCO:4h",
+        "assetClass": "EQUITY",
+        "bars": 240,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.0,
+          "largestGapBars": 22.8,
+          "gapsOverTwoBars": 68
+        }
+      },
+      {
+        "series": "GBPUSD:15m",
+        "assetClass": "FOREX",
+        "bars": 227,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.7522,
+          "largestGapBars": 192.1,
+          "gapsOverTwoBars": 2
+        }
+      },
+      {
+        "series": "EURUSD:1h",
+        "assetClass": "FOREX",
+        "bars": 222,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.7557,
+          "largestGapBars": 50.0,
+          "gapsOverTwoBars": 2
+        }
+      },
+      {
+        "series": "USDINR:1h",
+        "assetClass": "FOREX",
+        "bars": 222,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.5023,
+          "largestGapBars": 56.0,
+          "gapsOverTwoBars": 23
+        }
+      },
+      {
+        "series": "USDJPY:15m",
+        "assetClass": "FOREX",
+        "bars": 217,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.7685,
+          "largestGapBars": 192.1,
+          "gapsOverTwoBars": 2
+        }
+      },
+      {
+        "series": "AUDUSD:15m",
+        "assetClass": "FOREX",
+        "bars": 212,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.7915,
+          "largestGapBars": 192.1,
+          "gapsOverTwoBars": 2
+        }
+      },
+      {
+        "series": "USDCAD:15m",
+        "assetClass": "FOREX",
+        "bars": 210,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.8086,
+          "largestGapBars": 192.1,
+          "gapsOverTwoBars": 2
+        }
+      },
+      {
+        "series": "USDCHF:15m",
+        "assetClass": "FOREX",
+        "bars": 208,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 900,
+          "regularFraction": 0.8164,
+          "largestGapBars": 201.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "BTC:4h",
+        "assetClass": "CRYPTO",
+        "bars": 200,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "ETH:4h",
+        "assetClass": "CRYPTO",
+        "bars": 200,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "SOL:4h",
+        "assetClass": "CRYPTO",
+        "bars": 199,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.9949,
+          "largestGapBars": 2.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "GBPUSD:1h",
+        "assetClass": "FOREX",
+        "bars": 198,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.7462,
+          "largestGapBars": 48.0,
+          "gapsOverTwoBars": 1
+        }
+      },
+      {
+        "series": "ADA:4h",
+        "assetClass": "CRYPTO",
+        "bars": 193,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "AVAX:4h",
+        "assetClass": "CRYPTO",
+        "bars": 193,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "BNB:4h",
+        "assetClass": "CRYPTO",
+        "bars": 193,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "DOGE:4h",
+        "assetClass": "CRYPTO",
+        "bars": 193,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "XRP:4h",
+        "assetClass": "CRYPTO",
+        "bars": 193,
+        "sources": [
+          "binance"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 1.0,
+          "largestGapBars": 1.0,
+          "gapsOverTwoBars": 0
+        }
+      },
+      {
+        "series": "USDJPY:4h",
+        "assetClass": "FOREX",
+        "bars": 191,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 14400,
+          "regularFraction": 0.2947,
+          "largestGapBars": 13.5,
+          "gapsOverTwoBars": 4
+        }
+      },
+      {
+        "series": "USDJPY:1h",
+        "assetClass": "FOREX",
+        "bars": 189,
+        "sources": [
+          "yahoo"
+        ],
+        "gaps": {
+          "available": true,
+          "expectedSeconds": 3600,
+          "regularFraction": 0.6862,
+          "largestGapBars": 51.0,
+          "gapsOverTwoBars": 2
+        }
+      }
+    ]
+  },
+  "ablation": {
+    "id": "1.1",
+    "title": "Zero-cost ablation",
+    "withCosts": {
+      "trades": 398,
+      "netR": -212.39,
+      "grossR": -61.983,
+      "costR": 150.406,
+      "expectancyR": -0.5336,
+      "grossExpectancyR": -0.1557,
+      "profitFactor": 0.311,
+      "hitRate": 0.2487,
+      "averageWinR": 0.968,
+      "averageLossR": 1.031,
+      "largestWinR": 2.708,
+      "largestLossR": -2.448,
+      "sharpe": -0.5,
+      "sortino": -1.015,
+      "maxDrawdownR": 223.845,
+      "calmar": -0.949,
+      "averageBarsHeld": 46.9,
+      "expectancyStderr": 0.0535,
+      "tStat": -9.98,
+      "exitMix": {
+        "stop": 180,
+        "series_end": 129,
+        "time_exit": 64,
+        "target": 25
+      },
+      "underpowered": false
+    },
+    "zeroCost": {
+      "trades": 398,
+      "netR": -61.983,
+      "grossR": -61.983,
+      "costR": 0.0,
+      "expectancyR": -0.1557,
+      "grossExpectancyR": -0.1557,
+      "profitFactor": 0.703,
+      "hitRate": 0.3291,
+      "averageWinR": 1.118,
+      "averageLossR": 0.781,
+      "largestWinR": 3.45,
+      "largestLossR": -1.0,
+      "sharpe": -0.145,
+      "sortino": -0.46,
+      "maxDrawdownR": 127.422,
+      "calmar": -0.486,
+      "averageBarsHeld": 46.9,
+      "expectancyStderr": 0.054,
+      "tStat": -2.88,
+      "exitMix": {
+        "stop": 180,
+        "series_end": 129,
+        "time_exit": 64,
+        "target": 25
+      },
+      "underpowered": false
+    },
+    "costDragFractionOfGross": 2.4266,
+    "averageCostR": 0.3779,
+    "breakEvenHitRateAtQuotedRR": 0.3887,
+    "unresolved": {
+      "neverFilled": 0,
+      "insufficientForwardBars": 0,
+      "malformed": 0
+    },
+    "verdict": "NO_EDGE_AT_ZERO_COST",
+    "interpretation": "Expectancy is -0.1557R per trade with every fee, spread and slippage set to zero. There is no edge in the signal layer to protect. No cost model, gate, ranking layer or execution change can rescue this, because all of them operate on a quantity that is already negative. The work belongs in the signal hypothesis, not downstream of it."
+  },
+  "lag": {
+    "id": "1.2",
+    "title": "One-bar lag test (+1 bar)",
+    "baseline": {
+      "trades": 398,
+      "netR": -212.39,
+      "grossR": -61.983,
+      "costR": 150.406,
+      "expectancyR": -0.5336,
+      "grossExpectancyR": -0.1557,
+      "profitFactor": 0.311,
+      "hitRate": 0.2487,
+      "averageWinR": 0.968,
+      "averageLossR": 1.031,
+      "largestWinR": 2.708,
+      "largestLossR": -2.448,
+      "sharpe": -0.5,
+      "sortino": -1.015,
+      "maxDrawdownR": 223.845,
+      "calmar": -0.949,
+      "averageBarsHeld": 46.9,
+      "expectancyStderr": 0.0535,
+      "tStat": -9.98,
+      "exitMix": {
+        "stop": 180,
+        "series_end": 129,
+        "time_exit": 64,
+        "target": 25
+      },
+      "underpowered": false
+    },
+    "lagged": {
+      "trades": 398,
+      "netR": -212.556,
+      "grossR": -62.186,
+      "costR": 150.37,
+      "expectancyR": -0.5341,
+      "grossExpectancyR": -0.1562,
+      "profitFactor": 0.305,
+      "hitRate": 0.2412,
+      "averageWinR": 0.973,
+      "averageLossR": 1.013,
+      "largestWinR": 3.377,
+      "largestLossR": -2.731,
+      "sharpe": -0.501,
+      "sortino": -0.977,
+      "maxDrawdownR": 220.222,
+      "calmar": -0.965,
+      "averageBarsHeld": 47.1,
+      "expectancyStderr": 0.0535,
+      "tStat": -9.99,
+      "exitMix": {
+        "stop": 180,
+        "series_end": 131,
+        "time_exit": 63,
+        "target": 24
+      },
+      "underpowered": false
+    },
+    "delta": {
+      "netR": -0.166,
+      "expectancyR": -0.0004,
+      "hitRate": -0.0075
+    },
+    "expectancyRetainedFraction": null,
+    "verdict": "BASELINE_ALREADY_NEGATIVE \u2014 a lag test on a system with no positive baseline cannot distinguish leakage from noise. Resolve \u00a71.1 first.",
+    "note": "The lag test measures the symptom. The five data-path questions in the audit section locate the cause, and are answered from the source rather than from this run \u2014 a system can pass the lag test on stored candles and still leak live, because the stored series contains only closed bars and the live feed does not."
+  },
+  "randomControl": {
+    "id": "1.3",
+    "title": "Random-direction control",
+    "seeds": 30,
+    "tradesPerSeed": 398,
+    "targetTradesPerSeed": 500,
+    "tradeCountShortfall": 102,
+    "real": {
+      "trades": 398,
+      "netR": -212.39,
+      "grossR": -61.983,
+      "costR": 150.406,
+      "expectancyR": -0.5336,
+      "grossExpectancyR": -0.1557,
+      "profitFactor": 0.311,
+      "hitRate": 0.2487,
+      "averageWinR": 0.968,
+      "averageLossR": 1.031,
+      "largestWinR": 2.708,
+      "largestLossR": -2.448,
+      "sharpe": -0.5,
+      "sortino": -1.015,
+      "maxDrawdownR": 223.845,
+      "calmar": -0.949,
+      "averageBarsHeld": 46.9,
+      "expectancyStderr": 0.0535,
+      "tStat": -9.98,
+      "exitMix": {
+        "stop": 180,
+        "series_end": 129,
+        "time_exit": 64,
+        "target": 25
+      },
+      "underpowered": false
+    },
+    "randomDistribution": {
+      "netR": {
+        "min": -144.525,
+        "p05": -139.43,
+        "p25": -121.651,
+        "median": -112.529,
+        "p75": -87.97,
+        "p95": -72.138,
+        "max": -55.807,
+        "mean": -106.772,
+        "stdev": 22.451
+      },
+      "expectancyR": {
+        "min": -0.363,
+        "p05": -0.35,
+        "p25": -0.306,
+        "median": -0.283,
+        "p75": -0.221,
+        "p95": -0.181,
+        "max": -0.14,
+        "mean": -0.268,
+        "stdev": 0.056
+      }
+    },
+    "realPercentileOfRandom": {
+      "netR": 0.0,
+      "expectancyR": 0.0
+    },
+    "seedDetail": [
+      {
+        "seed": 20260815,
+        "trades": 398,
+        "netR": -112.818,
+        "expectancyR": -0.2835,
+        "hitRate": 0.3543
+      },
+      {
+        "seed": 20260816,
+        "trades": 398,
+        "netR": -122.24,
+        "expectancyR": -0.3071,
+        "hitRate": 0.3317
+      },
+      {
+        "seed": 20260817,
+        "trades": 398,
+        "netR": -55.807,
+        "expectancyR": -0.1402,
+        "hitRate": 0.3794
+      },
+      {
+        "seed": 20260818,
+        "trades": 398,
+        "netR": -91.531,
+        "expectancyR": -0.23,
+        "hitRate": 0.3844
+      },
+      {
+        "seed": 20260819,
+        "trades": 398,
+        "netR": -74.555,
+        "expectancyR": -0.1873,
+        "hitRate": 0.3719
+      },
+      {
+        "seed": 20260820,
+        "trades": 398,
+        "netR": -87.229,
+        "expectancyR": -0.2192,
+        "hitRate": 0.3744
+      },
+      {
+        "seed": 20260821,
+        "trades": 398,
+        "netR": -139.272,
+        "expectancyR": -0.3499,
+        "hitRate": 0.3291
+      },
+      {
+        "seed": 20260822,
+        "trades": 398,
+        "netR": -116.165,
+        "expectancyR": -0.2919,
+        "hitRate": 0.3442
+      },
+      {
+        "seed": 20260823,
+        "trades": 398,
+        "netR": -125.802,
+        "expectancyR": -0.3161,
+        "hitRate": 0.3342
+      },
+      {
+        "seed": 20260824,
+        "trades": 398,
+        "netR": -136.713,
+        "expectancyR": -0.3435,
+        "hitRate": 0.3266
+      },
+      {
+        "seed": 20260825,
+        "trades": 398,
+        "netR": -116.222,
+        "expectancyR": -0.292,
+        "hitRate": 0.3593
+      },
+      {
+        "seed": 20260826,
+        "trades": 398,
+        "netR": -82.129,
+        "expectancyR": -0.2064,
+        "hitRate": 0.3819
+      },
+      {
+        "seed": 20260827,
+        "trades": 398,
+        "netR": -111.655,
+        "expectancyR": -0.2805,
+        "hitRate": 0.3417
+      },
+      {
+        "seed": 20260828,
+        "trades": 398,
+        "netR": -107.875,
+        "expectancyR": -0.271,
+        "hitRate": 0.3492
+      },
+      {
+        "seed": 20260829,
+        "trades": 398,
+        "netR": -112.241,
+        "expectancyR": -0.282,
+        "hitRate": 0.3543
+      },
+      {
+        "seed": 20260830,
+        "trades": 398,
+        "netR": -119.885,
+        "expectancyR": -0.3012,
+        "hitRate": 0.3492
+      },
+      {
+        "seed": 20260831,
+        "trades": 398,
+        "netR": -139.559,
+        "expectancyR": -0.3507,
+        "hitRate": 0.3392
+      },
+      {
+        "seed": 20260832,
+        "trades": 398,
+        "netR": -83.052,
+        "expectancyR": -0.2087,
+        "hitRate": 0.3819
+      },
+      {
+        "seed": 20260833,
+        "trades": 398,
+        "netR": -109.793,
+        "expectancyR": -0.2759,
+        "hitRate": 0.3492
+      },
+      {
+        "seed": 20260834,
+        "trades": 398,
+        "netR": -114.948,
+        "expectancyR": -0.2888,
+        "hitRate": 0.3467
+      },
+      {
+        "seed": 20260835,
+        "trades": 398,
+        "netR": -122.559,
+        "expectancyR": -0.3079,
+        "hitRate": 0.3518
+      },
+      {
+        "seed": 20260836,
+        "trades": 398,
+        "netR": -81.701,
+        "expectancyR": -0.2053,
+        "hitRate": 0.3668
+      },
+      {
+        "seed": 20260837,
+        "trades": 398,
+        "netR": -93.648,
+        "expectancyR": -0.2353,
+        "hitRate": 0.3593
+      },
+      {
+        "seed": 20260838,
+        "trades": 398,
+        "netR": -70.159,
+        "expectancyR": -0.1763,
+        "hitRate": 0.3819
+      },
+      {
+        "seed": 20260839,
+        "trades": 398,
+        "netR": -113.671,
+        "expectancyR": -0.2856,
+        "hitRate": 0.3643
+      },
+      {
+        "seed": 20260840,
+        "trades": 398,
+        "netR": -90.196,
+        "expectancyR": -0.2266,
+        "hitRate": 0.3668
+      },
+      {
+        "seed": 20260841,
+        "trades": 398,
+        "netR": -125.951,
+        "expectancyR": -0.3165,
+        "hitRate": 0.3367
+      },
+      {
+        "seed": 20260842,
+        "trades": 398,
+        "netR": -115.954,
+        "expectancyR": -0.2913,
+        "hitRate": 0.3593
+      },
+      {
+        "seed": 20260843,
+        "trades": 398,
+        "netR": -144.525,
+        "expectancyR": -0.3631,
+        "hitRate": 0.3241
+      },
+      {
+        "seed": 20260844,
+        "trades": 398,
+        "netR": -85.299,
+        "expectancyR": -0.2143,
+        "hitRate": 0.3518
+      }
+    ],
+    "verdict": "INDISTINGUISHABLE_FROM_RANDOM \u2014 the real system sits at the 0th percentile of the coin-flip distribution. The signal layer is not contributing measurable directional information; the observed results originate in exit geometry and costs. Sample caveat: 398 trades per seed against the 500 the protocol asks for \u2014 the distribution is correspondingly wide and the percentile correspondingly imprecise."
+  },
+  "intrabar": {
+    "id": "1.4",
+    "title": "Intrabar path audit",
+    "closedTrades": 398,
+    "ambiguousTrades": 0,
+    "ambiguityRate": 0.0,
+    "ambiguityByTimeframe": {
+      "15m": {
+        "trades": 262,
+        "ambiguous": 0,
+        "rate": 0.0
+      },
+      "4h": {
+        "trades": 69,
+        "ambiguous": 0,
+        "rate": 0.0
+      },
+      "1h": {
+        "trades": 67,
+        "ambiguous": 0,
+        "rate": 0.0
+      }
+    },
+    "pessimistic": {
+      "trades": 398,
+      "netR": -212.39,
+      "grossR": -61.983,
+      "costR": 150.406,
+      "expectancyR": -0.5336,
+      "grossExpectancyR": -0.1557,
+      "profitFactor": 0.311,
+      "hitRate": 0.2487,
+      "averageWinR": 0.968,
+      "averageLossR": 1.031,
+      "largestWinR": 2.708,
+      "largestLossR": -2.448,
+      "sharpe": -0.5,
+      "sortino": -1.015,
+      "maxDrawdownR": 223.845,
+      "calmar": -0.949,
+      "averageBarsHeld": 46.9,
+      "expectancyStderr": 0.0535,
+      "tStat": -9.98,
+      "exitMix": {
+        "stop": 180,
+        "series_end": 129,
+        "time_exit": 64,
+        "target": 25
+      },
+      "underpowered": false
+    },
+    "optimistic": {
+      "trades": 398,
+      "netR": -212.39,
+      "grossR": -61.983,
+      "costR": 150.406,
+      "expectancyR": -0.5336,
+      "grossExpectancyR": -0.1557,
+      "profitFactor": 0.311,
+      "hitRate": 0.2487,
+      "averageWinR": 0.968,
+      "averageLossR": 1.031,
+      "largestWinR": 2.708,
+      "largestLossR": -2.448,
+      "sharpe": -0.5,
+      "sortino": -1.015,
+      "maxDrawdownR": 223.845,
+      "calmar": -0.949,
+      "averageBarsHeld": 46.9,
+      "expectancyStderr": 0.0535,
+      "tStat": -9.98,
+      "exitMix": {
+        "stop": 180,
+        "series_end": 129,
+        "time_exit": 64,
+        "target": 25
+      },
+      "underpowered": false
+    },
+    "policySpread": {
+      "netR": 0.0,
+      "expectancyR": 0.0,
+      "hitRate": 0.0
+    },
+    "verdict": "ACCEPTABLE_AMBIGUITY \u2014 0.0% of exits are ambiguous and expectancy moves +0.0000R between resolution policies. The pessimistic result stands as the honest one.",
+    "note": "Only the pessimistic column is a result. The optimistic column is the size of the assumption, shown so it cannot be mistaken for a finding."
+  },
+  "reconcile": {
+    "id": "1.5",
+    "title": "Live vs backtest reconciliation",
+    "mode": "DETERMINISM_ONLY",
+    "liveEntries": 0,
+    "determinism": {
+      "ran": true,
+      "series": "BTC:15m",
+      "signalsCompared": 0,
+      "barsScored": 3,
+      "identical": true
+    },
+    "verdict": "NOT_YET_INSTRUMENTED \u2014 no live snapshots exist to reconcile against. The live path now writes them (see diagnostics/live_log.py); this check becomes a real comparison as soon as the scanner has run with logging enabled. Until then it asserts only that the replay harness is deterministic, which is a precondition for the comparison and not a substitute for it."
+  },
+  "excursion": {
+    "id": "1.6",
+    "title": "MAE / MFE distributions",
+    "trades": 398,
+    "winners": 99,
+    "losers": 299,
+    "maeHistogram": {
+      "winners": {
+        "0.00-0.25R": 42,
+        "0.25-0.50R": 26,
+        "0.50-0.75R": 24,
+        "0.75-1.00R": 7
+      },
+      "losers": {
+        "0.00-0.25R": 13,
+        "0.25-0.50R": 41,
+        "0.50-0.75R": 26,
+        "0.75-1.00R": 39,
+        "1.00-1.25R": 112,
+        "1.25-1.50R": 24,
+        "1.50-1.75R": 10,
+        "1.75-2.00R": 6,
+        "2.00-2.25R": 7,
+        "2.25-2.50R": 3,
+        "2.50-2.75R": 2,
+        "2.75-3.00R": 2,
+        "3.00-3.25R": 1,
+        "3.50-3.75R": 4,
+        "3.75-4.00R": 6,
+        "4.00-4.25R": 2,
+        "4.25-4.50R": 1
+      }
+    },
+    "mfeHistogram": {
+      "winners": {
+        "0.25-0.50R": 2,
+        "0.50-0.75R": 5,
+        "0.75-1.00R": 6,
+        "1.00-1.25R": 19,
+        "1.25-1.50R": 13,
+        "1.50-1.75R": 9,
+        "1.75-2.00R": 10,
+        "2.00-2.25R": 7,
+        "2.25-2.50R": 5,
+        "2.50-2.75R": 5,
+        "2.75-3.00R": 3,
+        "3.00-3.25R": 1,
+        "3.50-3.75R": 1,
+        "4.50-4.75R": 2,
+        "4.75-5.00R": 1,
+        "5.00-5.25R": 1,
+        "5.75-6.00R": 2,
+        "6.75-7.00R": 1,
+        "7.25-7.50R": 1,
+        "7.50-7.75R": 1,
+        "8.00-8.25R": 3,
+        "8.25-8.50R": 1
+      },
+      "losers": {
+        "0.00-0.25R": 100,
+        "0.25-0.50R": 77,
+        "0.50-0.75R": 62,
+        "0.75-1.00R": 34,
+        "1.00-1.25R": 11,
+        "1.25-1.50R": 5,
+        "1.50-1.75R": 4,
+        "1.75-2.00R": 2,
+        "2.00-2.25R": 2,
+        "2.25-2.50R": 1,
+        "3.75-4.00R": 1
+      }
+    },
+    "summary": {
+      "winners": {
+        "maeR": {
+          "median": 0.311,
+          "mean": 0.353,
+          "p75": 0.535,
+          "p90": 0.692,
+          "max": 0.979
+        },
+        "mfeR": {
+          "median": 1.614,
+          "mean": 2.234,
+          "p75": 2.423,
+          "p90": 4.871,
+          "max": 8.296
+        }
+      },
+      "losers": {
+        "maeR": {
+          "median": 1.044,
+          "mean": 1.127,
+          "p75": 1.215,
+          "p90": 1.884,
+          "max": 4.322
+        },
+        "mfeR": {
+          "median": 0.41,
+          "mean": 0.492,
+          "p75": 0.649,
+          "p90": 0.938,
+          "max": 3.799
+        }
+      }
+    },
+    "losingTradesWithMfeOverHalfTargetPct": 4.7,
+    "winningTradesWithMaeOverHalfStopPct": 31.3,
+    "thresholds": {
+      "mfeFractionOfTarget": 0.5,
+      "maeFractionOfStop": 0.5
+    },
+    "targetSensitivity": [
+      {
+        "targetR": 0.5,
+        "reachedPct": 55.0,
+        "trades": 219
+      },
+      {
+        "targetR": 0.75,
+        "reachedPct": 38.2,
+        "trades": 152
+      },
+      {
+        "targetR": 1.0,
+        "reachedPct": 28.1,
+        "trades": 112
+      },
+      {
+        "targetR": 1.25,
+        "reachedPct": 20.6,
+        "trades": 82
+      },
+      {
+        "targetR": 1.5,
+        "reachedPct": 16.1,
+        "trades": 64
+      },
+      {
+        "targetR": 2.0,
+        "reachedPct": 9.8,
+        "trades": 39
+      },
+      {
+        "targetR": 2.5,
+        "reachedPct": 6.0,
+        "trades": 24
+      },
+      {
+        "targetR": 3.0,
+        "reachedPct": 4.0,
+        "trades": 16
+      }
+    ],
+    "verdict": "GEOMETRY_REASONABLE \u2014 5% of losers reached half their target and 31% of winners reached half their stop. Neither is the dominant failure."
+  },
+  "audit": {
+    "id": "1.2-audit",
+    "title": "Data-path audit",
+    "questions": [
+      {
+        "question": "1. Does the live feed's candle array include the in-progress (unclosed) candle as its last element?",
+        "answer": "YES \u2014 at least one live provider passes the forming bar through.",
+        "severity": "CRITICAL",
+        "detail": "Guarded: Binance REST klines. Unguarded: Yahoo chart API, Simulated provider. Yahoo's chart endpoint returns the current, still-forming bar as the last element of `timestamp`/`quote` during a session, exactly as Binance does. The Binance provider filters it out by `closeTime`; the Yahoo path has no equivalent filter, so every equity and index analysis run during market hours scores a partial bar as though it were complete. Its close is wherever price happens to sit, its range is truncated and its volume is a fraction of normal \u2014 and the engine reads that bar's close as the signal's entry price.",
+        "evidence": [
+          {
+            "path": "apps/api/src/market-data/providers/binance.provider.ts",
+            "line": 75,
+            "text": "updatedAt: new Date(data.closeTime).toISOString(),"
+          },
+          {
+            "path": "apps/api/src/market-data/providers/binance.provider.ts",
+            "line": 108,
+            "text": "// `closeTime` (field 6) is the venue's own answer to \"is this done?\", so"
+          },
+          {
+            "path": "apps/api/src/market-data/providers/yahoo.provider.ts",
+            "line": 158,
+            "text": "async getCandles("
+          },
+          {
+            "path": "apps/api/src/market-data/providers/yahoo.provider.ts",
+            "line": 189,
+            "text": "candles.push({"
+          },
+          {
+            "path": "apps/api/src/market-data/providers/simulated.provider.ts",
+            "line": 81,
+            "text": "async getCandles("
+          },
+          {
+            "path": "apps/api/src/market-data/providers/simulated.provider.ts",
+            "line": 132,
+            "text": "candles.push({"
+          }
+        ]
+      },
+      {
+        "question": "2. Does the backtest iterate only closed candles?",
+        "answer": "YES \u2014 for both simulators, but only because the store contains no forming bars.",
+        "severity": "MEDIUM",
+        "detail": "The strategy simulator stops one bar short of the end so a next-bar fill always exists, and the replay harness slices at `candles[: i + 1]`, so neither can see past the bar it is scoring. The qualification matters: both iterate whatever the candle store holds, and the store is written from the same providers audited in question 1. A forming bar persisted once becomes a closed bar to every later reader, and no simulator can detect that after the fact.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/backtest.py",
+            "line": 292,
+            "text": "for i in range(start, len(df) - 1):"
+          },
+          {
+            "path": "services/ai/app/diagnostics/replay.py",
+            "line": 18,
+            "text": "**The slice ends at a closed bar.** ``candles[: i + 1]`` makes bar *i* the last"
+          },
+          {
+            "path": "services/ai/app/diagnostics/replay.py",
+            "line": 200,
+            "text": "Every call sees ``candles[: i + 1]`` and nothing else."
+          },
+          {
+            "path": "services/ai/app/diagnostics/replay.py",
+            "line": 218,
+            "text": "window = series.candles[: i + 1]"
+          }
+        ]
+      },
+      {
+        "question": "3. Is any feature computed using the high, low or close of the same bar the signal fires on?",
+        "answer": "YES \u2014 by design, and it is sound only if that bar is closed.",
+        "severity": "HIGH",
+        "detail": "The whole analysis is anchored on the last element of the frame: the current price is its close, candle anatomy is measured on it, the stop is derived from the last 20 bars' high/low including it, and every moving average and range measure ends on it. That is correct behaviour for a signal generated *after* a bar closes \u2014 it is the definition of acting on the latest complete information. It becomes look-ahead the moment the last element is a bar that has not finished, because then its high, low and close are all still moving. The correctness of this entire layer is therefore conditional on question 1, and question 1 fails on the Yahoo path.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 71,
+            "text": "price = float(df[\"close\"].iloc[-1])"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 88,
+            "text": "price = float(df[\"close\"].iloc[-1])"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 240,
+            "text": "price = float(df[\"close\"].iloc[-1])"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 270,
+            "text": "anatomy = analyse_candle("
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 271,
+            "text": "df, len(df) - 1,"
+          },
+          {
+            "path": "services/ai/app/engine/pipeline.py",
+            "line": 545,
+            "text": "w_anatomy = analyse_candle("
+          },
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 79,
+            "text": "recent = df.iloc[-20:]"
+          }
+        ]
+      },
+      {
+        "question": "4. Is the fill price the signal bar's close?",
+        "answer": "SPLIT \u2014 the strategy simulator fills at the next bar's open; the published signal quotes the signal bar's close as its entry.",
+        "severity": "HIGH",
+        "detail": "`backtest.py` is explicit and correct: `fill = opens[i + 1]`. The signal engine is not a simulator and never fills anything, but the entry price it publishes is `df['close'].iloc[-1]` \u2014 the close of the bar it fired on. Anyone acting on that number is, by construction, trying to trade a price that stopped being available the instant the bar ended, and the live tracker then marks the entry as filled when the *next polled quote* sits within a quarter-ATR band around it. So the recorded fill is neither a real fill nor a next-open fill; it is 'price was still nearby five minutes later'. The replay harness in this package deliberately refuses to use the published entry as a fill and prices every trade at the next bar's open instead.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/backtest.py",
+            "line": 345,
+            "text": "fill = opens[i + 1]  # next bar's open \u2014 never the signal bar's close"
+          },
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 82,
+            "text": "entry = price"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 677,
+            "text": "const filled = long ? price <= limit : price >= limit;"
+          }
+        ]
+      },
+      {
+        "question": "5. Are any auxiliary data sources timestamped at publish time rather than effective time?",
+        "answer": "YES \u2014 every one of them, and none carries an effective timestamp at all.",
+        "severity": "HIGH",
+        "detail": "Funding, open interest and order-book depth all reach the engine as a single current snapshot with no timestamp attached, so a replay cannot place them in time and the live path cannot tell a stale snapshot from a fresh one. News and economic events carry `publishedAt` / `scheduledAt` only \u2014 publication time, not the moment the information became effective, and for an economic release those differ by the entire embargo period. In practice this does not currently leak into the replay, because the replay passes none of these inputs: it reconstructs signals from candles alone. That is itself the finding \u2014 the live engine scores with evidence the measured system never sees, so live and replay are not the same system even before drift is considered.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/derivatives.py",
+            "line": 2,
+            "text": "Perpetual-futures funding, open interest and positioning."
+          },
+          {
+            "path": "services/ai/app/engine/derivatives.py",
+            "line": 6,
+            "text": "carry: price tells you where the market is, funding tells you what it costs to"
+          },
+          {
+            "path": "services/ai/app/engine/orderbook.py",
+            "line": 23,
+            "text": "**Spread and depth** \u2014 execution quality. A signal whose target is inside the"
+          },
+          {
+            "path": "services/ai/app/engine/orderbook.py",
+            "line": 51,
+            "text": "Read a depth snapshot."
+          },
+          {
+            "path": "services/ai/app/engine/sentiment.py",
+            "line": 243,
+            "text": "age_hours = float(item.get(\"ageHours\", 0.0))"
+          },
+          {
+            "path": "services/ai/app/engine/sentiment.py",
+            "line": 245,
+            "text": "decay = 0.5 ** (age_hours / half_life_hours)"
+          },
+          {
+            "path": "apps/api/src/news/news.module.ts",
+            "line": 56,
+            "text": "orderBy: { publishedAt: 'desc' },"
+          },
+          {
+            "path": "apps/api/src/news/news.module.ts",
+            "line": 79,
+            "text": "publishedAt: Date;"
+          },
+          {
+            "path": "apps/api/src/jobs/signal-monitor.service.ts",
+            "line": 266,
+            "text": "where: { scheduledAt: { gte: new Date(now), lte: new Date(now + 24 * 3_600_000) } },"
+          },
+          {
+            "path": "apps/api/src/jobs/signal-monitor.service.ts",
+            "line": 267,
+            "text": "orderBy: { scheduledAt: 'asc' },"
+          }
+        ]
+      }
+    ],
+    "additionalFindings": [
+      {
+        "question": "A. Are stop and target resolved against bar ranges or against polled quotes?",
+        "answer": "POLLED QUOTES \u2014 resolution is blind to anything between polls.",
+        "severity": "CRITICAL",
+        "detail": "The live tracker compares a single spot price from `getQuotes()` against the stop and each target. A stop or target touched between two polls is never recorded, and when both were touched, which one is reported depends on where price happened to sit at poll time rather than on which came first. The comment above it claims the pessimistic read; a point sample is not pessimistic, it is blind. This systematically under-records both stop-outs and target hits, and pushes outcomes into the non-price endings \u2014 which is precisely the distribution the live signal table shows.",
+        "evidence": [
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 649,
+            "text": "const quotes = await this.marketData.getQuotes([...new Set(active.map((s) => s.symbol))]);"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 690,
+            "text": "if (stop !== null && ((long && price <= stop) || (!long && price >= stop))) {"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 705,
+            "text": "const reached = long ? price >= level : price <= level;"
+          }
+        ]
+      },
+      {
+        "question": "B. Is the entry-fill flag a fill, or a proximity test?",
+        "answer": "PROXIMITY \u2014 it is true by construction almost immediately.",
+        "severity": "HIGH",
+        "detail": "`entryFilledAt` is set when a polled price sits inside the published entry band. That band is entry \u00b1 0.25 ATR and the entry is the last close, so on the first poll after issue the condition is satisfied for virtually every signal that has not already moved a quarter-ATR. The field is therefore recording 'the signal was still alive at the next poll', while the rest of the system reads it as 'a position existed' \u2014 and that reading is what decides whether an early exit is booked as a cancelled trade or as a setup that never happened.",
+        "evidence": [
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 673,
+            "text": "if (signal.entryFilledAt === null && entry !== null) {"
+          },
+          {
+            "path": "apps/api/src/jobs/autoscan.service.ts",
+            "line": 674,
+            "text": "const limit = long"
+          }
+        ]
+      },
+      {
+        "question": "C. Are non-price endings counted as losses?",
+        "answer": "YES \u2014 every unresolved signal defaults to \u22121R.",
+        "severity": "CRITICAL",
+        "detail": "The analytics layer falls back to `\u22121` for any signal without a recorded `realisedR` that is not a target hit. EXPIRED, INVALID and CANCELLED signals all take that path, and the schema is explicit that none of them represents a financial loss \u2014 INVALID never had a position at all. Some are additionally persisted with `realisedR = \u22121` on signals whose `entryFilledAt` is null, so the fallback is not the only source. Every hit-rate, expectancy and profit-factor figure the platform reports is computed over a population where setups that were never entered contribute full-size losses.",
+        "evidence": [
+          {
+            "path": "apps/api/src/analysis/analytics.service.ts",
+            "line": 171,
+            "text": "const rOf = (r: TradeRow) => num(r.realisedR) ?? (r.status.startsWith('HIT_') ? 1 : -1);"
+          },
+          {
+            "path": "apps/api/src/analysis/analytics.service.ts",
+            "line": 305,
+            "text": "const rs = rows.map((r) => num(r.realisedR) ?? (r.status.startsWith('HIT_') ? 1 : -1));"
+          },
+          {
+            "path": "apps/api/src/analysis/analytics.service.ts",
+            "line": 334,
+            "text": "const rs = rows.map((r) => num(r.realisedR) ?? (r.status.startsWith('HIT_') ? 1 : -1));"
+          }
+        ]
+      },
+      {
+        "question": "D. Does revalidation compare like with like?",
+        "answer": "NO \u2014 a calibrated confidence is compared against an uncalibrated one.",
+        "severity": "HIGH",
+        "detail": "A signal's stored confidence is produced by a pipeline run with walk-forward calibration applied. Revalidation re-runs the pipeline with `withCalibration: false` \u2014 for a defensible reason, since the calibrated pass is roughly fifty times more expensive \u2014 and then subtracts one from the other and calls the difference a confidence drop. Any systematic offset the calibrator introduces is therefore read as thesis decay. Compounding it, the job runs every few minutes against every open signal regardless of timeframe, so a daily signal is re-scored on the order of three hundred times a day, each one an independent opportunity to trip a 22-point threshold. The probability of at least one trip over a multi-day hold approaches certainty whether or not anything has changed.",
+        "evidence": [
+          {
+            "path": "apps/api/src/jobs/signal-monitor.service.ts",
+            "line": 102,
+            "text": "this.analysis.analyse(symbol, timeframe, { withCalibration: false }),"
+          },
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 40,
+            "text": "CONFIDENCE_DROP_CRITICAL = 22.0"
+          },
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 182,
+            "text": "elif drop >= CONFIDENCE_DROP_CRITICAL:"
+          }
+        ]
+      },
+      {
+        "question": "E. Can a trade in normal drawdown be closed by accumulated warnings?",
+        "answer": "YES \u2014 three warnings force a close, and one of them fires on ordinary adverse excursion.",
+        "severity": "CRITICAL",
+        "detail": "Three WARNING findings promote to CRITICAL and close the position. `STOP_RISK` raises a warning once price has travelled 55% of the way to the stop \u2014 which is not a malfunction, it is the middle of the range every trade is designed to survive. Order flow can contribute two warnings on its own, and thin volume or a volatility shift supplies the third. The result is a rule that preferentially closes trades that are temporarily losing, before they can reach a target quoted at 1.6R. It truncates the right tail of the outcome distribution and leaves the left tail intact, which is the exact opposite of what an exit rule is for.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 47,
+            "text": "STOP_PROXIMITY_WARNING = 0.55"
+          },
+          {
+            "path": "services/ai/app/engine/revalidation.py",
+            "line": 341,
+            "text": "elif len(warnings) >= 3:"
+          }
+        ]
+      },
+      {
+        "question": "F. Is the published reward:risk measured, or constructed?",
+        "answer": "CONSTRUCTED \u2014 the first target is placed at the ratio the gate requires.",
+        "severity": "HIGH",
+        "detail": "The first target is solved for as `min_risk_reward \u00d7 (1 + cost_r) + cost_r + 0.1`, and the gate then rejects anything below `min_risk_reward`. With the floor at 1.5 and cost negligible against a daily stop, that is 1.60 \u2014 which is the value carried by two thirds of the signals ever issued. The number is an input restated as an output. It is only a measurement when a structural level pulls the target in, and in that case it fails the gate. So the ratio can distinguish 'rejected' from 'accepted' and cannot say anything about how far price is likely to travel.",
+        "evidence": [
+          {
+            "path": "services/ai/app/engine/signals.py",
+            "line": 209,
+            "text": "first_multiple = settings.min_risk_reward * (1.0 + cost_r) + cost_r + 0.1"
+          }
+        ]
+      }
+    ],
+    "criticalCount": 4,
+    "highCount": 6
+  },
+  "breakdowns": {
+    "session bucket": {
+      "asia": {
+        "trades": 143,
+        "netR": -83.911,
+        "grossR": -27.109,
+        "costR": 56.803,
+        "expectancyR": -0.5868,
+        "grossExpectancyR": -0.1896,
+        "profitFactor": 0.254,
+        "hitRate": 0.2028,
+        "averageWinR": 0.986,
+        "averageLossR": 0.987,
+        "largestWinR": 2.532,
+        "largestLossR": -2.181,
+        "sharpe": -0.602,
+        "sortino": -1.25,
+        "maxDrawdownR": 87.822,
+        "calmar": -0.955,
+        "averageBarsHeld": 43.8,
+        "expectancyStderr": 0.0815,
+        "tStat": -7.2,
+        "exitMix": {
+          "series_end": 64,
+          "stop": 56,
+          "time_exit": 15,
+          "target": 8
+        },
+        "underpowered": true
+      },
+      "europe": {
+        "trades": 134,
+        "netR": -71.07,
+        "grossR": -26.077,
+        "costR": 44.992,
+        "expectancyR": -0.5304,
+        "grossExpectancyR": -0.1946,
+        "profitFactor": 0.356,
+        "hitRate": 0.2463,
+        "averageWinR": 1.192,
+        "averageLossR": 1.093,
+        "largestWinR": 2.58,
+        "largestLossR": -2.448,
+        "sharpe": -0.443,
+        "sortino": -0.947,
+        "maxDrawdownR": 83.975,
+        "calmar": -0.846,
+        "averageBarsHeld": 43.4,
+        "expectancyStderr": 0.1033,
+        "tStat": -5.13,
+        "exitMix": {
+          "stop": 71,
+          "time_exit": 32,
+          "series_end": 20,
+          "target": 11
+        },
+        "underpowered": true
+      },
+      "us": {
+        "trades": 87,
+        "netR": -24.041,
+        "grossR": 9.618,
+        "costR": 33.658,
+        "expectancyR": -0.2763,
+        "grossExpectancyR": 0.1105,
+        "profitFactor": 0.53,
+        "hitRate": 0.3908,
+        "averageWinR": 0.796,
+        "averageLossR": 0.964,
+        "largestWinR": 2.708,
+        "largestLossR": -1.944,
+        "sharpe": -0.255,
+        "sortino": -0.473,
+        "maxDrawdownR": 29.871,
+        "calmar": -0.805,
+        "averageBarsHeld": 57.9,
+        "expectancyStderr": 0.1162,
+        "tStat": -2.38,
+        "exitMix": {
+          "stop": 33,
+          "series_end": 32,
+          "time_exit": 16,
+          "target": 6
+        },
+        "underpowered": true
+      },
+      "late": {
+        "trades": 34,
+        "netR": -33.368,
+        "grossR": -18.415,
+        "costR": 14.953,
+        "expectancyR": -0.9814,
+        "grossExpectancyR": -0.5416,
+        "profitFactor": 0.025,
+        "hitRate": 0.0882,
+        "averageWinR": 0.284,
+        "averageLossR": 1.104,
+        "largestWinR": 0.337,
+        "largestLossR": -2.216,
+        "sharpe": -1.584,
+        "sortino": -1.977,
+        "maxDrawdownR": 33.368,
+        "calmar": -1.0,
+        "averageBarsHeld": 45.8,
+        "expectancyStderr": 0.1062,
+        "tStat": -9.24,
+        "exitMix": {
+          "stop": 20,
+          "series_end": 13,
+          "time_exit": 1
+        },
+        "underpowered": true
+      }
+    },
+    "timeframe": {
+      "15m": {
+        "trades": 262,
+        "netR": -161.04,
+        "grossR": -42.383,
+        "costR": 118.656,
+        "expectancyR": -0.6147,
+        "grossExpectancyR": -0.1618,
+        "profitFactor": 0.294,
+        "hitRate": 0.2061,
+        "averageWinR": 1.245,
+        "averageLossR": 1.097,
+        "largestWinR": 2.708,
+        "largestLossR": -2.181,
+        "sharpe": -0.543,
+        "sortino": -1.24,
+        "maxDrawdownR": 161.04,
+        "calmar": -1.0,
+        "averageBarsHeld": 42.1,
+        "expectancyStderr": 0.0699,
+        "tStat": -8.8,
+        "exitMix": {
+          "stop": 130,
+          "series_end": 74,
+          "time_exit": 38,
+          "target": 20
+        },
+        "underpowered": false
+      },
+      "4h": {
+        "trades": 69,
+        "netR": -25.041,
+        "grossR": -4.247,
+        "costR": 20.795,
+        "expectancyR": -0.3629,
+        "grossExpectancyR": -0.0615,
+        "profitFactor": 0.468,
+        "hitRate": 0.4493,
+        "averageWinR": 0.71,
+        "averageLossR": 1.238,
+        "largestWinR": 1.756,
+        "largestLossR": -2.448,
+        "sharpe": -0.328,
+        "sortino": -0.7,
+        "maxDrawdownR": 37.198,
+        "calmar": -0.673,
+        "averageBarsHeld": 55.5,
+        "expectancyStderr": 0.133,
+        "tStat": -2.73,
+        "exitMix": {
+          "stop": 33,
+          "time_exit": 22,
+          "series_end": 11,
+          "target": 3
+        },
+        "underpowered": true
+      },
+      "1h": {
+        "trades": 67,
+        "netR": -26.309,
+        "grossR": -15.353,
+        "costR": 10.955,
+        "expectancyR": -0.3927,
+        "grossExpectancyR": -0.2292,
+        "profitFactor": 0.2,
+        "hitRate": 0.209,
+        "averageWinR": 0.47,
+        "averageLossR": 0.621,
+        "largestWinR": 2.235,
+        "largestLossR": -1.37,
+        "sharpe": -0.584,
+        "sortino": -0.89,
+        "maxDrawdownR": 26.309,
+        "calmar": -1.0,
+        "averageBarsHeld": 57.0,
+        "expectancyStderr": 0.0821,
+        "tStat": -4.78,
+        "exitMix": {
+          "series_end": 44,
+          "stop": 17,
+          "time_exit": 4,
+          "target": 2
+        },
+        "underpowered": true
+      }
+    },
+    "asset class": {
+      "CRYPTO": {
+        "trades": 301,
+        "netR": -173.197,
+        "grossR": -63.781,
+        "costR": 109.415,
+        "expectancyR": -0.5754,
+        "grossExpectancyR": -0.2119,
+        "profitFactor": 0.293,
+        "hitRate": 0.2027,
+        "averageWinR": 1.179,
+        "averageLossR": 1.021,
+        "largestWinR": 2.708,
+        "largestLossR": -2.181,
+        "sharpe": -0.533,
+        "sortino": -1.157,
+        "maxDrawdownR": 173.197,
+        "calmar": -1.0,
+        "averageBarsHeld": 44.4,
+        "expectancyStderr": 0.0622,
+        "tStat": -9.25,
+        "exitMix": {
+          "stop": 141,
+          "series_end": 97,
+          "time_exit": 41,
+          "target": 22
+        },
+        "underpowered": false
+      },
+      "FOREX": {
+        "trades": 84,
+        "netR": -44.549,
+        "grossR": -4.524,
+        "costR": 40.025,
+        "expectancyR": -0.5303,
+        "grossExpectancyR": -0.0539,
+        "profitFactor": 0.257,
+        "hitRate": 0.369,
+        "averageWinR": 0.497,
+        "averageLossR": 1.131,
+        "largestWinR": 1.579,
+        "largestLossR": -2.448,
+        "sharpe": -0.55,
+        "sortino": -0.852,
+        "maxDrawdownR": 52.706,
+        "calmar": -0.845,
+        "averageBarsHeld": 58.1,
+        "expectancyStderr": 0.1052,
+        "tStat": -5.04,
+        "exitMix": {
+          "stop": 37,
+          "series_end": 24,
+          "time_exit": 23
+        },
+        "underpowered": true
+      },
+      "EQUITY": {
+        "trades": 13,
+        "netR": 5.356,
+        "grossR": 6.322,
+        "costR": 0.966,
+        "expectancyR": 0.412,
+        "grossExpectancyR": 0.4863,
+        "profitFactor": 2.715,
+        "hitRate": 0.5385,
+        "averageWinR": 1.211,
+        "averageLossR": 0.52,
+        "largestWinR": 1.756,
+        "largestLossR": -1.074,
+        "sharpe": 0.398,
+        "sortino": 0.916,
+        "maxDrawdownR": 2.546,
+        "calmar": 2.104,
+        "averageBarsHeld": 33.9,
+        "expectancyStderr": 0.287,
+        "tStat": 1.44,
+        "exitMix": {
+          "series_end": 8,
+          "target": 3,
+          "stop": 2
+        },
+        "underpowered": true
+      }
+    },
+    "volatility regime": {
+      "NORMAL": {
+        "trades": 210,
+        "netR": -111.996,
+        "grossR": -45.367,
+        "costR": 66.629,
+        "expectancyR": -0.5333,
+        "grossExpectancyR": -0.216,
+        "profitFactor": 0.309,
+        "hitRate": 0.2286,
+        "averageWinR": 1.043,
+        "averageLossR": 1.0,
+        "largestWinR": 2.58,
+        "largestLossR": -1.863,
+        "sharpe": -0.505,
+        "sortino": -1.045,
+        "maxDrawdownR": 131.106,
+        "calmar": -0.854,
+        "averageBarsHeld": 46.9,
+        "expectancyStderr": 0.0728,
+        "tStat": -7.33,
+        "exitMix": {
+          "stop": 107,
+          "series_end": 61,
+          "time_exit": 30,
+          "target": 12
+        },
+        "underpowered": false
+      },
+      "LOW": {
+        "trades": 102,
+        "netR": -50.474,
+        "grossR": 9.147,
+        "costR": 59.621,
+        "expectancyR": -0.4948,
+        "grossExpectancyR": 0.0897,
+        "profitFactor": 0.351,
+        "hitRate": 0.3235,
+        "averageWinR": 0.829,
+        "averageLossR": 1.128,
+        "largestWinR": 2.572,
+        "largestLossR": -2.448,
+        "sharpe": -0.443,
+        "sortino": -0.878,
+        "maxDrawdownR": 52.143,
+        "calmar": -0.968,
+        "averageBarsHeld": 44.1,
+        "expectancyStderr": 0.1107,
+        "tStat": -4.47,
+        "exitMix": {
+          "series_end": 59,
+          "stop": 27,
+          "time_exit": 10,
+          "target": 6
+        },
+        "underpowered": true
+      },
+      "HIGH": {
+        "trades": 85,
+        "netR": -49.865,
+        "grossR": -25.825,
+        "costR": 24.039,
+        "expectancyR": -0.5866,
+        "grossExpectancyR": -0.3038,
+        "profitFactor": 0.269,
+        "hitRate": 0.2118,
+        "averageWinR": 1.021,
+        "averageLossR": 1.019,
+        "largestWinR": 2.708,
+        "largestLossR": -1.872,
+        "sharpe": -0.559,
+        "sortino": -1.152,
+        "maxDrawdownR": 52.12,
+        "calmar": -0.957,
+        "averageBarsHeld": 49.8,
+        "expectancyStderr": 0.1138,
+        "tStat": -5.16,
+        "exitMix": {
+          "stop": 46,
+          "time_exit": 23,
+          "series_end": 9,
+          "target": 7
+        },
+        "underpowered": true
+      },
+      "EXTREME": {
+        "trades": 1,
+        "netR": -0.055,
+        "grossR": 0.062,
+        "costR": 0.117,
+        "expectancyR": -0.0549,
+        "grossExpectancyR": 0.0625,
+        "profitFactor": 0.0,
+        "hitRate": 0.0,
+        "averageWinR": 0.0,
+        "averageLossR": 0.055,
+        "largestWinR": 0.0,
+        "largestLossR": -0.055,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "maxDrawdownR": 0.055,
+        "calmar": -1.0,
+        "averageBarsHeld": 96.0,
+        "expectancyStderr": 0.0,
+        "tStat": 0.0,
+        "exitMix": {
+          "time_exit": 1
+        },
+        "underpowered": true
+      }
+    },
+    "direction": {
+      "SELL": {
+        "trades": 200,
+        "netR": -142.115,
+        "grossR": -81.19,
+        "costR": 60.925,
+        "expectancyR": -0.7106,
+        "grossExpectancyR": -0.4059,
+        "profitFactor": 0.23,
+        "hitRate": 0.145,
+        "averageWinR": 1.464,
+        "averageLossR": 1.079,
+        "largestWinR": 2.578,
+        "largestLossR": -1.942,
+        "sharpe": -0.671,
+        "sortino": -1.492,
+        "maxDrawdownR": 151.403,
+        "calmar": -0.939,
+        "averageBarsHeld": 40.4,
+        "expectancyStderr": 0.0749,
+        "tStat": -9.49,
+        "exitMix": {
+          "stop": 127,
+          "time_exit": 30,
+          "series_end": 29,
+          "target": 14
+        },
+        "underpowered": false
+      },
+      "BUY": {
+        "trades": 198,
+        "netR": -70.275,
+        "grossR": 19.206,
+        "costR": 89.481,
+        "expectancyR": -0.3549,
+        "grossExpectancyR": 0.097,
+        "profitFactor": 0.432,
+        "hitRate": 0.3535,
+        "averageWinR": 0.762,
+        "averageLossR": 0.966,
+        "largestWinR": 2.708,
+        "largestLossR": -2.448,
+        "sharpe": -0.339,
+        "sortino": -0.611,
+        "maxDrawdownR": 79.134,
+        "calmar": -0.888,
+        "averageBarsHeld": 53.5,
+        "expectancyStderr": 0.0744,
+        "tStat": -4.77,
+        "exitMix": {
+          "series_end": 100,
+          "stop": 53,
+          "time_exit": 34,
+          "target": 11
+        },
+        "underpowered": true
+      }
+    }
+  }
+}
